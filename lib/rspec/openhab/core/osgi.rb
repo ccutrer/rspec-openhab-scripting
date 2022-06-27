@@ -1,0 +1,19 @@
+# frozen_string_literal: true
+
+module OpenHAB
+  module Core
+    class OSGI
+      class << self
+        def register_service(name, service)
+          (@services ||= {})[name] = service
+        end
+
+        def service(name)
+          @services&.[](name)
+        end
+
+        def services(name, filter: nil); end
+      end
+    end
+  end
+end
