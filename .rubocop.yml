@@ -5,18 +5,15 @@ require:
 AllCops:
   TargetRubyVersion: 2.5
   NewCops: enable
+  Exclude:
+    - lib/rspec-openhab-scripting_jars.rb
 
 Metrics:
   Enabled: false
 
-Layout/LineLength:
-  Exclude:
-    - lib/rspec-openhab-scripting_jars.rb
-
 Naming/FileName:
   Exclude:
     - lib/rspec-openhab-scripting.rb
-    - lib/rspec-openhab-scripting_jars.rb
 
 Performance/Casecmp:
   AutoCorrect: false
@@ -37,8 +34,6 @@ Style/RescueStandardError:
   EnforcedStyle: implicit
 Style/StringLiterals:
   EnforcedStyle: double_quotes
-  Exclude:
-   - lib/rspec-openhab-scripting_jars.rb
 Style/StringLiteralsInInterpolation:
   EnforcedStyle: double_quotes
 Style/TernaryParentheses:

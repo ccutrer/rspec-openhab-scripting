@@ -1,5 +1,3 @@
-# frozen_string_literal: true
-
 # this is a generated file, to avoid over-writing it just delete this comment
 begin
   require 'jar_dependencies'

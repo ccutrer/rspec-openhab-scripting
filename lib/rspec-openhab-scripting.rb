@@ -38,7 +38,6 @@ require "openhab"
 # openhab-scripting uses a require_relative, so our override doesn't get used
 OpenHAB::DSL.send(:remove_const, :Timer)
 require_relative "rspec/openhab/dsl/timers/timer"
-require_relative "rspec/openhab/core/generic_item"
 
 # rubocop:disable Style/GlobalVars
 
