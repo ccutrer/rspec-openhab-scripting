@@ -148,11 +148,6 @@ module OpenHAB
           mtrbp.process_automation_provider(bundle)
           mtr.add_provider(mtrbp)
 
-          jrsef = org.openhab.automation.jrubyscripting.internal.JRubyScriptEngineFactory.new
-          smtp = org.openhab.core.automation.module.script.internal.provider.ScriptModuleTypeProvider.new
-          smtp.script_engine_factory = jrsef
-          mtr.add_provider(smtp)
-
           # set up script support stuff
           srp = org.openhab.core.automation.module.script.rulesupport.shared.ScriptedRuleProvider.new
           rr.add_provider(srp)
