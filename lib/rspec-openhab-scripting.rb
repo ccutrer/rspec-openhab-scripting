@@ -28,6 +28,8 @@ require_jar "org.openhab.core.bundles", "org.openhab.core.semantics", openhab_ve
 require_jar "org.openhab.core.bundles", "org.openhab.core.test", openhab_version
 require_jar "org.openhab.core.bundles", "org.openhab.core.thing", openhab_version
 
+require "openhab/version"
+
 # we completely override some files from openhab-scripting
 $LOAD_PATH.unshift("#{__dir__}/rspec")
 

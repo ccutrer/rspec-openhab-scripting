@@ -8,6 +8,6 @@ module OpenHAB
       def add_rubylib_to_load_path
         $LOAD_PATH.unshift(OPENHAB_SHARE_PATH) unless $LOAD_PATH.include?(OPENHAB_SHARE_PATH)
       end
-end
+    end
   end
 end
