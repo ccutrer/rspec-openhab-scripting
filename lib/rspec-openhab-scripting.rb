@@ -3,11 +3,20 @@
 Bundler::FriendlyErrors.disable!
 
 require "rspec/openhab/api"
-api = OpenHAB::API.new("http://localhost:#{ENV.fetch("OPENHAB_HTTP_PORT", "8080")}/")
+api = OpenHAB::API.new("http://#{ENV.fetch("OPENHAB_HOST", "localhost")}:#{ENV.fetch("OPENHAB_HTTP_PORT", "8080")}/")
 
-openhab_version = api.version
+module OpenHAB
+  module Core
+    class << self
+      attr_accessor :openhab_version
+    end
+  end
+end
+
+openhab_version = OpenHAB::Core.openhab_version = api.version
 
 require "rspec-openhab-scripting_jars"
+require "rspec/kar"
 require_jar "org.osgi", "org.osgi.util.tracker", "1.5.4"
 require_jar "org.openhab.core.bundles", "org.openhab.core", openhab_version
 require_jar "org.openhab.core.bundles", "org.openhab.core.config.core", openhab_version
@@ -19,6 +28,8 @@ require_jar "org.openhab.core.bundles", "org.openhab.core.model.script", openhab
 require_jar "org.openhab.core.bundles", "org.openhab.core.semantics", openhab_version
 require_jar "org.openhab.core.bundles", "org.openhab.core.test", openhab_version
 require_jar "org.openhab.core.bundles", "org.openhab.core.thing", openhab_version
+require_kar "/usr/share/openhab/addons/openhab-addons-#{openhab_version}.kar", "org.openhab.addons.bundles",
+            "org.openhab.automation.jrubyscripting", openhab_version
 
 # we completely override some files from openhab-scripting
 $LOAD_PATH.unshift("#{__dir__}/rspec")
@@ -28,12 +39,15 @@ def oh.config_folder
   ENV.fetch("OPENHAB_CONF", "/etc/openhab")
 end
 
-# global variables need to be setup before openhab-scripting loads
+# global variables need to be set up before openhab-scripting loads
 require "openhab/log/logger"
+require "rspec/openhab/core/logger"
 require "openhab/dsl/imports"
 OpenHAB::DSL::Imports.import_presets
 
 require "openhab"
+
+require "rspec/openhab/core/cron_scheduler"
 
 # openhab-scripting uses a require_relative, so our override doesn't get used
 OpenHAB::DSL.send(:remove_const, :Timer)

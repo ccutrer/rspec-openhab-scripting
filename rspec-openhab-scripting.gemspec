@@ -19,7 +19,7 @@ Gem::Specification.new do |s|
   s.requirements << "jar org.eclipse.xtext, org.eclipse.xtext, 2.26.0"
   s.requirements << "jar org.osgi, osgi.cmpn, 7.0.0"
   s.requirements << "jar org.osgi, org.osgi.framework, 1.8.0"
-  s.requirements << "jar org.slf4j, slf4j-simple, 1.7.35"
+  s.requirements << "jar ch.qos.logback, logback-classic, 1.2.9"
   s.requirements << "jar si.uom, si-units, 2.1"
   s.requirements << "jar tech.units, indriya, 2.1.3"
 

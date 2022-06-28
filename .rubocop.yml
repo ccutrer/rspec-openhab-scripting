@@ -32,6 +32,8 @@ Style/PerlBackrefs:
   Enabled: false
 Style/RescueStandardError:
   EnforcedStyle: implicit
+Style/SpecialGlobalVars:
+  Enabled: false
 Style/StringLiterals:
   EnforcedStyle: double_quotes
 Style/StringLiteralsInInterpolation:

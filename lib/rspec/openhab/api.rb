@@ -17,7 +17,7 @@ module OpenHAB
     def version
       body = @faraday.get.body
       version = body.dig("runtimeInfo", "version")
-      version = "#{version}-SNAPSHOT" if body.dig("runtimeInfo", "buildString")
+      version = "#{version}-SNAPSHOT" if body.dig("runtimeInfo", "buildString")&.start_with?("Build #")
       version
     end
 

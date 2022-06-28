@@ -31,6 +31,51 @@ module OpenHAB
         end
       end
 
+      class BundleContext
+        include org.osgi.framework.BundleContext
+
+        def initialize(event_manager)
+          @event_manager = event_manager
+        end
+
+        def register_service(klass, service, _properties)
+          klass = klass.to_s
+          unless klass == "org.openhab.core.events.EventSubscriber"
+            raise NotImplementedError "Don't know how to process service #{service.inspect} of type #{klass.name}"
+          end
+
+          @event_manager.add_event_subscriber(service)
+        end
+      end
+
+      class Bundle
+        include org.osgi.framework.Bundle
+        INSTALLED = 2
+
+        def initialize(*jar_args)
+          jar = Jars.send(:to_jar, *jar_args)
+          file = File.join(Jars.home, jar)
+          @jar = java.util.jar.JarFile.new(file.to_s)
+          @symbolic_name = jar_args[1]
+          @version = org.osgi.framework.Version.new(jar_args[2].tr("-", "."))
+        end
+
+        attr_reader :symbolic_name, :version
+
+        def state
+          INSTALLED
+        end
+
+        def find_entries(path, pattern, recurse)
+          pattern ||= recurse ? "**" : "*"
+          full_pattern = File.join(path, pattern)
+          entries = @jar.entries.select do |e|
+            File.fnmatch(full_pattern, e.name)
+          end
+          java.util.Collections.enumeration(entries.map { |e| java.net.URL.new("jar:file://#{@jar.name}!/#{e.name}") })
+        end
+      end
+
       # subclass to expose private fields
       class EventManager < org.openhab.core.internal.events.OSGiEventManager
         field_reader :typedEventFactories, :typedEventSubscribers
@@ -44,9 +89,9 @@ module OpenHAB
 
           # some background java threads get created; kill them at_exit
           at_exit do
-            threads_to_kill = %w[Finalizer NonBlockingInputStreamThread]
-            Thread.list
-                  .each { |t| t.kill if threads_to_kill.include?(t.name) }
+            status = 0
+            status = $!.status if $!.is_a?(SystemExit)
+            exit!(status)
           end
 
           # OSGiEventManager will create a ThreadedEventHandler on OSGi activation;
@@ -64,9 +109,12 @@ module OpenHAB
           ss = org.openhab.core.test.storage.VolatileStorageService.new
           ir.managed_provider = mip = org.openhab.core.items.ManagedItemProvider.new(ss, nil)
           ir.add_provider(mip)
-          mip.add_provider_change_listener(ir)
           tr = org.openhab.core.thing.internal.ThingRegistryImpl.new
+          mtr = org.openhab.core.automation.internal.type.ModuleTypeRegistryImpl.new
           rr = org.openhab.core.automation.internal.RuleRegistryImpl.new
+          rr.module_type_registry = mtr
+          rr.managed_provider = mrp = org.openhab.core.automation.ManagedRuleProvider.new(ss)
+          rr.add_provider(mrp)
           iclr = org.openhab.core.thing.link.ItemChannelLinkRegistry.new(tr, ir)
 
           # set up stuff accessed from rules
@@ -86,16 +134,38 @@ module OpenHAB
             end
           end
 
-          rp = org.openhab.core.automation.module.script.rulesupport.shared.ScriptedRuleProvider.new
-          cmhf = org.openhab.core.automation.module.script.rulesupport.internal.ScriptedCustomModuleHandlerFactory.new
-          cmtp = org.openhab.core.automation.module.script.rulesupport.internal.ScriptedCustomModuleTypeProvider.new
-          pmhf = org.openhab.core.automation.module.script.rulesupport.internal.ScriptedPrivateModuleHandlerFactory.new
+          # set up the rules engine part 1
+          mtrbp = org.openhab.core.automation.internal.provider.ModuleTypeResourceBundleProvider.new(nil)
+          mtgp = org.openhab.core.automation.internal.parser.gson.ModuleTypeGSONParser.new
+          mtrbp.add_parser(mtgp, {})
+          bundle = Bundle.new("org.openhab.core.bundles",
+                              "org.openhab.core.automation.module.script.rulesupport",
+                              OpenHAB::Core.openhab_version)
+          mtrbp.process_automation_provider(bundle)
+          bundle = Bundle.new("org.openhab.core.bundles",
+                              "org.openhab.core.automation",
+                              OpenHAB::Core.openhab_version)
+          mtrbp.process_automation_provider(bundle)
+          mtr.add_provider(mtrbp)
+
+          jrsef = org.openhab.automation.jrubyscripting.internal.JRubyScriptEngineFactory.new
+          smtp = org.openhab.core.automation.module.script.internal.provider.ScriptModuleTypeProvider.new
+          smtp.script_engine_factory = jrsef
+          mtr.add_provider(smtp)
+
+          # set up script support stuff
+          srp = org.openhab.core.automation.module.script.rulesupport.shared.ScriptedRuleProvider.new
+          rr.add_provider(srp)
+          scmhf = org.openhab.core.automation.module.script.rulesupport.internal.ScriptedCustomModuleHandlerFactory.new
+          scmtp = org.openhab.core.automation.module.script.rulesupport.internal.ScriptedCustomModuleTypeProvider.new
+          mtr.add_provider(scmtp)
+          spmhf = org.openhab.core.automation.module.script.rulesupport.internal.ScriptedPrivateModuleHandlerFactory.new
           se = org.openhab.core.automation.module.script.rulesupport.internal
-                  .RuleSupportScriptExtension.new(rr, rp, cmhf, cmtp, pmhf)
+                  .RuleSupportScriptExtension.new(rr, srp, scmhf, scmtp, spmhf)
           sew = ScriptExtensionManagerWrapper.new(se)
           $se = $scriptExtension = sew # rubocop:disable Style/GlobalVars
 
-          # need to created some singletons referencing registries
+          # need to create some singletons referencing registries
           org.openhab.core.model.script.ScriptServiceUtil.new(ir, tr, ep, nil, nil)
           org.openhab.core.model.script.internal.engine.action.SemanticsActionService.new(ir)
 
@@ -110,6 +180,17 @@ module OpenHAB
           em.add_event_subscriber(iu)
           em.add_event_subscriber(cm)
           em.add_event_factory(ief)
+
+          # set up the rules engine part 2
+          bc = BundleContext.new(em)
+          cmhf = org.openhab.core.automation.internal.module.factory.CoreModuleHandlerFactory.new(bc, ep, ir)
+
+          rs = org.openhab.core.internal.service.ReadyServiceImpl.new
+          re = org.openhab.core.automation.internal.RuleEngineImpl.new(mtr, rr, ss, rs)
+          re.add_module_handler_factory(cmhf)
+          re.add_module_handler_factory(scmhf)
+          re.add_module_handler_factory(spmhf)
+          re.onReadyMarkerAdded(nil)
         end
       end
     end
