@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-Bundler::FriendlyErrors.disable!
-
 require "rspec/openhab/api"
 api = OpenHAB::API.new("http://#{ENV.fetch("OPENHAB_HOST", "localhost")}:#{ENV.fetch("OPENHAB_HTTP_PORT", "8080")}/")
 
@@ -90,14 +88,10 @@ end
 # load rules files
 OPENHAB_AUTOMATION_PATH = "#{org.openhab.core.OpenHAB.config_folder}/automation/jsr223/ruby/personal"
 
-require "bundler/inline"
-
 # set up some environment the rules files expect
-Bundler.with_unbundled_env do
-  Dir["#{OPENHAB_AUTOMATION_PATH}/*.rb"].each do |f|
-    load f
-  rescue => e
-    warn "Failed loading #{f}: #{e}"
-    warn e.backtrace
-  end
+Dir["#{OPENHAB_AUTOMATION_PATH}/*.rb"].each do |f|
+  load f
+rescue => e
+  warn "Failed loading #{f}: #{e}"
+  warn e.backtrace
 end

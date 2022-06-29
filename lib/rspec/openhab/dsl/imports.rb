@@ -81,6 +81,8 @@ module OpenHAB
         field_reader :typedEventFactories, :typedEventSubscribers
       end
 
+      @imported = false
+
       class << self
         def import_presets
           return if @imported
