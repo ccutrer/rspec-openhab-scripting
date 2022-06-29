@@ -205,7 +205,14 @@ module OpenHAB
 
           # set up the rules engine part 2
           bc = BundleContext.new(em)
-          cmhf = org.openhab.core.automation.internal.module.factory.CoreModuleHandlerFactory.new(bc, ep, ir)
+          k = org.openhab.core.automation.internal.module.factory.CoreModuleHandlerFactory
+          # depending on OH version, this class is set up differently
+          args = k.method(:new).arity == 0 ? [] : [bc, ep, ir]
+          cmhf = k.new(*args)
+          if args.empty?
+            cmhf.item_registry = ir
+            cmhf.event_publisher = ep
+          end
 
           rs = org.openhab.core.internal.service.ReadyServiceImpl.new
           re = org.openhab.core.automation.internal.RuleEngineImpl.new(mtr, rr, ss, rs)
