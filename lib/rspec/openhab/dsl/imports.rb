@@ -78,9 +78,8 @@ module OpenHAB
         INSTALLED = 2
 
         def initialize(*jar_args)
-          jar = Jars.send(:to_jar, *jar_args)
-          file = File.join(Jars.home, jar)
-          @jar = java.util.jar.JarFile.new(file.to_s)
+          file = Jars.find_jar(*jar_args)
+          @jar = java.util.jar.JarFile.new(file)
           @symbolic_name = jar_args[1]
           @version = org.osgi.framework.Version.new(jar_args[2].tr("-", "."))
         end

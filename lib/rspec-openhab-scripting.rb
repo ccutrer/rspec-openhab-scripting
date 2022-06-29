@@ -11,6 +11,11 @@ module OpenHAB
   end
 end
 
+oh_home = ENV.fetch("OPENHAB_HOME", "/usr/share/openhab")
+oh_runtime = ENV.fetch("OPENHAB_RUNTIME", "#{oh_home}/runtime")
+
+ENV['JARS_ADDITIONAL_MAVEN_REPOS'] = File.join(oh_runtime, "system")
+
 openhab_version = OpenHAB::Core.openhab_version = api.version
 
 require "rspec-openhab-scripting_jars"
