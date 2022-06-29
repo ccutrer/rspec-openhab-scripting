@@ -23,7 +23,6 @@ require_jar "org.openhab.core.bundles", "org.openhab.core.automation.module.scri
 require_jar "org.openhab.core.bundles", "org.openhab.core.model.core", openhab_version
 require_jar "org.openhab.core.bundles", "org.openhab.core.model.script", openhab_version
 require_jar "org.openhab.core.bundles", "org.openhab.core.semantics", openhab_version
-require_jar "org.openhab.core.bundles", "org.openhab.core.test", openhab_version
 require_jar "org.openhab.core.bundles", "org.openhab.core.thing", openhab_version
 
 require "openhab/version"

@@ -48,6 +48,31 @@ module OpenHAB
         end
       end
 
+      # don't depend on org.openhab.core.test
+      class VolatileStorageService
+        include org.openhab.core.storage.StorageService
+
+        def initialize
+          @storages = {}
+        end
+
+        def get_storage(name, *)
+          @storages[name] ||= VolatileStorage.new
+        end
+      end
+
+      class VolatileStorage < Hash
+        include org.openhab.core.storage.Storage
+
+        alias_method :get, :[]
+        alias_method :put, :[]=
+        alias_method :remove, :delete
+        alias_method :contains_key, :key?
+
+        alias_method :get_keys, :keys
+        alias_method :get_values, :values
+      end
+
       class Bundle
         include org.osgi.framework.Bundle
         INSTALLED = 2
@@ -108,7 +133,7 @@ module OpenHAB
           mr = org.openhab.core.internal.items.MetadataRegistryImpl.new
           OpenHAB::Core::OSGI.register_service("org.openhab.core.items.MetadataRegistry", mr)
           ir = org.openhab.core.internal.items.ItemRegistryImpl.new(mr)
-          ss = org.openhab.core.test.storage.VolatileStorageService.new
+          ss = VolatileStorageService.new
           ir.managed_provider = mip = org.openhab.core.items.ManagedItemProvider.new(ss, nil)
           ir.add_provider(mip)
           tr = org.openhab.core.thing.internal.ThingRegistryImpl.new
