@@ -206,11 +206,14 @@ module OpenHAB
           bc = BundleContext.new(em)
           k = org.openhab.core.automation.internal.module.factory.CoreModuleHandlerFactory
           # depending on OH version, this class is set up differently
-          args = k.method(:new).arity == 0 ? [] : [bc, ep, ir]
-          cmhf = k.new(*args)
-          if args.empty?
+          cmhf = begin
+            cmhf = k.new
             cmhf.item_registry = ir
             cmhf.event_publisher = ep
+            cmhf.activate(bc)
+            cmhf
+          rescue ArgumentError
+            k.new(bc, ep, ir)
           end
 
           rs = org.openhab.core.internal.service.ReadyServiceImpl.new

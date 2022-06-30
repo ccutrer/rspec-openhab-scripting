@@ -15,25 +15,21 @@ Gem::Specification.new do |s|
     "rubygems_mfa_required" => "true"
   }
 
-  s.requirements << "jar com.google.code.gson, gson, 2.8.9"
-  s.requirements << "jar org.eclipse.xtext, org.eclipse.xtext, 2.26.0"
-  s.requirements << "jar org.osgi, osgi.cmpn, 7.0.0"
-  s.requirements << "jar org.osgi, org.osgi.framework, 1.8.0"
   s.requirements << "jar ch.qos.logback, logback-classic, 1.2.9"
-  s.requirements << "jar si.uom, si-units, 2.1"
-  s.requirements << "jar tech.units, indriya, 2.1.3"
 
-  s.files = Dir["{lib}/**/*"]
+  s.files = Dir["{lib,vendor}/**/*"]
 
   s.required_ruby_version = ">= 2.5"
 
   s.add_dependency "faraday_middleware", "~> 1.1"
+  s.add_dependency "jar-dependencies", "~> 0.4"
   s.add_dependency "net-http-persistent", "~> 4.0"
   s.add_dependency "openhab-scripting", "~> 4.42"
-  s.add_runtime_dependency "jar-dependencies", "~> 0.4"
+  s.add_dependency "ruby-maven", "~> 3.3"
 
   s.add_development_dependency "rake", "~> 13.0"
   s.add_development_dependency "rubocop", "~> 1.23"
   s.add_development_dependency "rubocop-performance", "~> 1.12"
   s.add_development_dependency "rubocop-rake", "~> 0.6"
+  s.add_development_dependency "ruby-debug", "~> 0.11"
 end

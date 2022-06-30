@@ -7,6 +7,7 @@ AllCops:
   NewCops: enable
   Exclude:
     - lib/rspec-openhab-scripting_jars.rb
+    - vendor/**/*
 
 Metrics:
   Enabled: false
