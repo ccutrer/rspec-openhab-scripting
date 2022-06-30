@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    rspec-openhab-scripting (0.0.1-java)
+    rspec-openhab-scripting (0.0.2-java)
       faraday_middleware (~> 1.1)
       jar-dependencies (~> 0.4)
       net-http-persistent (~> 4.0)
@@ -45,7 +45,7 @@ GEM
     multipart-post (2.2.3)
     net-http-persistent (4.0.1)
       connection_pool (~> 2.2)
-    openhab-scripting (4.42.1)
+    openhab-scripting (4.42.2)
       bundler (~> 2.2)
       marcel (~> 1.0)
     parallel (1.22.1)
