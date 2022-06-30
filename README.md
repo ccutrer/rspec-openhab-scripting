@@ -21,9 +21,6 @@ limitations that will hopefully be resolved as it matures:
  * differing from when OpenHAB loads rules, all rules are loaded into a single
    JRuby execution context, so changes to globals in one file will affect other
    files.
- * logging is functional, and defaults to INFO level. You can adjust levels
-   with say `logger.level = OpenHAB::DSL::Logger::DEBUG`, but how it affects
-   particular loggers or how to find them has not yet been explored.
 
 ## Usage
 
@@ -99,6 +96,16 @@ drop you into IRB.
    resulting state of items. Instead, you should use the `wait_for_rules`
    helper method that will wait until all rule threads are blocked (done
    executing).
+ * Logging levels can be changed in your code. Setting a log level for a logger
+   further up the chain (separated by dots) applies to all loggers underneath
+   it. The events logger (corresponding to what normally goes to events.log)
+   defaults to WARN level, so that it will be silent.
+```ruby
+OpenHAB::Log.logger("org.openhab.core.automation.internal.RuleEngineImpl").level = :debug
+OpenHAB::Log.logger("org.openhab.core.automation").level = :debug
+OpenHAB::Log.root.level = :debug
+OpenHAB::Log.events.level = :info
+```
 
 
 

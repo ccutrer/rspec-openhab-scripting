@@ -221,7 +221,12 @@ module OpenHAB
           re.add_module_handler_factory(cmhf)
           re.add_module_handler_factory(scmhf)
           re.add_module_handler_factory(spmhf)
-          re.onReadyMarkerAdded(nil)
+          re.on_ready_marker_added(nil)
+
+          # enable event logging
+          el = org.openhab.core.io.monitor.internal.EventLogger.new(rs)
+          em.add_event_subscriber(el)
+          el.on_ready_marker_added(nil)
         end
       end
     end

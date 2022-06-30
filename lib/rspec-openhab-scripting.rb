@@ -38,6 +38,7 @@ maven_require do
   require "jar org.openhab.core.bundles, org.openhab.core.automation, #{openhab_version}"
   require "jar org.openhab.core.bundles, org.openhab.core.automation.module.script, #{openhab_version}"
   require "jar org.openhab.core.bundles, org.openhab.core.automation.module.script.rulesupport, #{openhab_version}"
+  require "jar org.openhab.core.bundles, org.openhab.core.io.monitor, #{openhab_version}"
   require "jar org.openhab.core.bundles, org.openhab.core.model.core, #{openhab_version}"
   require "jar org.openhab.core.bundles, org.openhab.core.model.script, #{openhab_version}"
   require "jar org.openhab.core.bundles, org.openhab.core.semantics, #{openhab_version}"

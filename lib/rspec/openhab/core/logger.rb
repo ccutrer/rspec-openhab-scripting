@@ -15,10 +15,37 @@ module OpenHAB
       levels.each { |level| const_set(level, ch.qos.logback.classic.Level.const_get(level)) }
 
       extend Forwardable
-      delegate %i[level level=] => :@sl4fj_logger
+      delegate %i[level] => :@sl4fj_logger
+
+      def level=(level)
+        if level.is_a?(String) || level.is_a?(Symbol)
+          level = ch.qos.logback.classic.Level.const_get(level.to_s.upcase, false)
+        end
+        @sl4fj_logger.level = level
+      end
+    end
+  end
+
+  module Log
+    class << self
+      def root
+        logger(org.slf4j.Logger::ROOT_LOGGER_NAME)
+      end
+
+      def events
+        logger("openhab.event")
+      end
+
+      def logger(object)
+        logger_name = case object
+                      when String then object
+                      else logger_name(object)
+                      end
+        @loggers[logger_name] ||= Core::Logger.new(logger_name)
+      end
     end
   end
 end
 
-root_logger = org.slf4j.LoggerFactory.get_logger(org.slf4j.Logger::ROOT_LOGGER_NAME)
-root_logger.level = OpenHAB::Core::Logger::INFO
+OpenHAB::Log.root.level = :info
+OpenHAB::Log.events.level = :warn
