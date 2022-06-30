@@ -24,7 +24,7 @@ limitations that will hopefully be resolved as it matures:
    likely want to stub them anyway to avoid wallclock time delays in your
    tests. Maybe a framework to make them easy to stub, and then execute
    on demand?
- * rule triggers besides on_start and item related triggers (such as
+ * rule triggers besides item related triggers (such as
    thing status, cron, or watchers) are not triggered. I'm thinking of a
    helper to help you locate a rule and manually trigger it.
  * differing from when OpenHAB loads rules, all rules are loaded into a single
@@ -88,6 +88,9 @@ drop you into IRB.
 ### Spec Writing Tips
 
  * All items are reset to NULL before each spec.
+ * `on_start` triggers are _not_ honored. Items will be reset to NULL before
+   the next spec anyway, so just don't waste the energy running them. You
+   can still trigger rules manually.
 
 ## Configuration
 

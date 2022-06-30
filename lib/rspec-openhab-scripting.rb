@@ -70,6 +70,10 @@ require_relative "rspec/openhab/dsl/timers/timer"
 
 # rubocop:disable Style/GlobalVars
 
+# RSpec additions
+require "rspec/openhab/dsl/rules/rspec"
+require "rspec/openhab/state"
+
 # populate item registry
 all_items = api.items
 all_items.each do |item_json|
@@ -113,6 +117,3 @@ rescue Exception => e # rubocop:disable Lint/RescueException
   warn "Failed loading #{f}: #{e}"
   warn e.backtrace
 end
-
-# RSpec additions
-require "rspec/openhab/state"
