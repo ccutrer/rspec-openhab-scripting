@@ -73,6 +73,7 @@ require_relative "rspec/openhab/dsl/timers/timer"
 # RSpec additions
 require "rspec/openhab/dsl/rules/rspec"
 require "rspec/openhab/state"
+require "rspec/openhab/trigger"
 
 # populate item registry
 all_items = api.items
