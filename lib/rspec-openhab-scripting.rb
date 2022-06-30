@@ -113,3 +113,6 @@ rescue Exception => e # rubocop:disable Lint/RescueException
   warn "Failed loading #{f}: #{e}"
   warn e.backtrace
 end
+
+# RSpec additions
+require "rspec/openhab/state"

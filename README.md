@@ -14,9 +14,6 @@ At this time, the gem is barely past proof of concept. There are several
 limitations that will hopefully be resolved as it matures:
  * actions may or may not work (you probably want to stub them anyway)
  * persistence (item history) will not work
- * item states are not reset between specs, so don't rely on everything
-   being NULL. It's intended that they be reset to NULL between every
-   spec
  * rules run in their own threads, asynchronously. therefore you can't
    send a command or update in your spec, and immediately check the
    resulting state of items. It's intended to write a helper such as
@@ -87,6 +84,10 @@ Bonus, if you want to play in a sandbox to explore what's available (either for
 specs or for writing rules) via a REPL, run `bundle console`. It will first
 load up the OpenHAB dependencies, and then load your items and rules in, then
 drop you into IRB.
+
+### Spec Writing Tips
+
+ * All items are reset to NULL before each spec.
 
 ## Configuration
 
