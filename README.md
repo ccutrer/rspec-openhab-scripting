@@ -14,19 +14,10 @@ At this time, the gem is barely past proof of concept. There are several
 limitations that will hopefully be resolved as it matures:
  * actions may or may not work (you probably want to stub them anyway)
  * persistence (item history) will not work
- * rules run in their own threads, asynchronously. therefore you can't
-   send a command or update in your spec, and immediately check the
-   resulting state of items. It's intended to write a helper such as
-   `wait_for_rules` that waits until there are no rules executing,
-   to have as little of waiting as possible. In the meantime, a manual
-   `sleep(0.5)` seems to be working fine for me.
  * timers don't work. It's intended to make them work properly, but you'll
    likely want to stub them anyway to avoid wallclock time delays in your
    tests. Maybe a framework to make them easy to stub, and then execute
    on demand?
- * rule triggers besides item related triggers (such as
-   thing status, cron, or watchers) are not triggered. I'm thinking of a
-   helper to help you locate a rule and manually trigger it.
  * differing from when OpenHAB loads rules, all rules are loaded into a single
    JRuby execution context, so changes to globals in one file will affect other
    files.
@@ -71,9 +62,18 @@ RSpec.describe "switches.rb" do
     it "works" do
       GuestCans_Dimmer.update(0)
       GuestCans_Scene.update("1.3")
-      # TODO: wait for rules
-      sleep(0.5)
+      wait_for_rules
       expect(GuestCans_Dimmer.state).to eq 100
+    end
+
+    it "sets some state" do
+      trigger_rule("my rule")
+      expect(GuestCans_Scene.state).to be_nil
+    end
+
+    it "triggers a rule expecting an event" do
+      trigger_rule("my rule 2", Struct.new(:item).new(GuestCans_Scene))
+      expect(GuestCans_Scene.state).to be_nil
     end
   end
 end
@@ -91,6 +91,16 @@ drop you into IRB.
  * `on_start` triggers are _not_ honored. Items will be reset to NULL before
    the next spec anyway, so just don't waste the energy running them. You
    can still trigger rules manually.
+ * Rule triggers besides item related triggers (such as
+   thing status, cron, or watchers) are not triggered. You can test them with
+   `trigger_rule("rule name"[, event])`.
+ * Rules run in their own threads, asynchronously. Therefore you can't
+   send a command or update in your spec, and immediately check the
+   resulting state of items. Instead, you should use the `wait_for_rules`
+   helper method that will wait until all rule threads are blocked (done
+   executing).
+
+
 
 ## Configuration
 
