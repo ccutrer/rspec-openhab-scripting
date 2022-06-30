@@ -129,10 +129,12 @@ module OpenHAB
           ep = org.openhab.core.internal.events.OSGiEventPublisher.new(ea)
 
           # the registries!
+          ss = VolatileStorageService.new
           mr = org.openhab.core.internal.items.MetadataRegistryImpl.new
           OpenHAB::Core::OSGI.register_service("org.openhab.core.items.MetadataRegistry", mr)
+          mr.managed_provider = mmp = org.openhab.core.internal.items.ManagedMetadataProviderImpl.new(ss)
+          mr.add_provider(mmp)
           ir = org.openhab.core.internal.items.ItemRegistryImpl.new(mr)
-          ss = VolatileStorageService.new
           ir.managed_provider = mip = org.openhab.core.items.ManagedItemProvider.new(ss, nil)
           ir.add_provider(mip)
           tr = org.openhab.core.thing.internal.ThingRegistryImpl.new

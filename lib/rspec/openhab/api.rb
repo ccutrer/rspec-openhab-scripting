@@ -22,7 +22,7 @@ module OpenHAB
     end
 
     def items
-      @faraday.get("items").body
+      @faraday.get("items", metadata: ".*").body
     end
 
     def item(name)

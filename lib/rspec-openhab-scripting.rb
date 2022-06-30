@@ -69,46 +69,14 @@ require "rspec/openhab/core/cron_scheduler"
 OpenHAB::DSL.send(:remove_const, :Timer)
 require_relative "rspec/openhab/dsl/timers/timer"
 
-# rubocop:disable Style/GlobalVars
-
 # RSpec additions
 require "rspec/openhab/dsl/rules/rspec"
 require "rspec/openhab/state"
 require "rspec/openhab/trigger"
 require "rspec/openhab/wait"
+require "rspec/openhab/items"
 
-# populate item registry
-all_items = api.items
-all_items.each do |item_json|
-  type, _dimension = item_json["type"].split(":")
-  if type == "Group"
-    if item_json["groupType"]
-      type, _dimension = item_json["groupType"].split(":")
-      klass = OpenHAB::DSL::Items.const_get(:"#{type}Item")
-      base_item = klass.new(item_json["name"])
-    end
-    # TODO: create group function
-    item = GroupItem.new(item_json["name"], base_item)
-  else
-    klass = OpenHAB::DSL::Items.const_get(:"#{type}Item")
-    item = klass.new(item_json["name"])
-  end
-
-  item.label = item_json["label"]
-  item_json["tags"].each do |tag|
-    item.add_tag(tag)
-  end
-  $ir.add(item)
-end
-all_items.each do |item_json| # rubocop:disable Style/CombinableLoops
-  item_json["groupNames"].each do |group_name|
-    next unless (group = $ir.get(group_name))
-
-    group.add_member($ir.get(item_json["name"]))
-  end
-end
-
-# rubocop:enable Style/GlobalVars
+RSpec::OpenHAB::Items.populate_items_from_api(api)
 
 # load rules files
 OPENHAB_AUTOMATION_PATH = "#{org.openhab.core.OpenHAB.config_folder}/automation/jsr223/ruby/personal"
