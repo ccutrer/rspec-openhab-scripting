@@ -59,6 +59,7 @@ end
 require "openhab/log/logger"
 require "rspec/openhab/core/logger"
 require "openhab/dsl/imports"
+OpenHAB::DSL::Imports.api = api
 OpenHAB::DSL::Imports.import_presets
 
 require "openhab"

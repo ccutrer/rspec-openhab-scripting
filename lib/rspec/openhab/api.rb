@@ -15,10 +15,17 @@ module OpenHAB
     end
 
     def version
-      body = @faraday.get.body
-      version = body.dig("runtimeInfo", "version")
-      version = "#{version}-SNAPSHOT" if body.dig("runtimeInfo", "buildString")&.start_with?("Build #")
+      version = root_data.dig("runtimeInfo", "version")
+      version = "#{version}-SNAPSHOT" if root_data.dig("runtimeInfo", "buildString")&.start_with?("Build #")
       version
+    end
+
+    def locale
+      root_data["locale"]
+    end
+
+    def measurement_system
+      root_data["measurementSystem"]
     end
 
     def items
@@ -29,6 +36,12 @@ module OpenHAB
       @faraday.get("items/#{name}").body
     rescue Faraday::ResourceNotFound
       nil
+    end
+
+    private
+
+    def root_data
+      @root_data ||= @faraday.get.body
     end
   end
 end

@@ -34,8 +34,11 @@ module OpenHAB
       class BundleContext
         include org.osgi.framework.BundleContext
 
+        attr_reader :bundles
+
         def initialize(event_manager)
           @event_manager = event_manager
+          @bundles = []
         end
 
         def register_service(klass, service, _properties)
@@ -46,6 +49,10 @@ module OpenHAB
 
           @event_manager.add_event_subscriber(service)
         end
+
+        def get_service_reference(klass); end
+        def get_service(klass); end
+        def add_bundle_listener(listener); end
       end
 
       # don't depend on org.openhab.core.test
@@ -100,6 +107,17 @@ module OpenHAB
         end
       end
 
+      class ComponentContext
+        include org.osgi.service.component.ComponentContext
+
+        attr_reader :properties, :bundle_context
+
+        def initialize(bundle_context)
+          @properties = java.util.Hashtable.new
+          @bundle_context = bundle_context
+        end
+      end
+
       # subclass to expose private fields
       class EventManager < org.openhab.core.internal.events.OSGiEventManager
         field_reader :typedEventFactories, :typedEventSubscribers
@@ -108,6 +126,8 @@ module OpenHAB
       @imported = false
 
       class << self
+        attr_accessor :api
+
         def import_presets
           return if @imported
 
@@ -127,6 +147,9 @@ module OpenHAB
           at_exit { eh.close }
           ea = EventAdmin.new(eh)
           ep = org.openhab.core.internal.events.OSGiEventPublisher.new(ea)
+          bc = BundleContext.new(em)
+          cc = ComponentContext.new(bc)
+          cc.properties["measurementSystem"] = api.measurement_system if api
 
           # the registries!
           ss = VolatileStorageService.new
@@ -138,6 +161,9 @@ module OpenHAB
           ir.managed_provider = mip = org.openhab.core.items.ManagedItemProvider.new(ss, nil)
           ir.add_provider(mip)
           ir.event_publisher = ep
+          up = org.openhab.core.internal.i18n.I18nProviderImpl.new(cc)
+          ir.unit_provider = up
+          ir.item_state_converter = org.openhab.core.internal.items.ItemStateConverterImpl.new(up)
           tr = org.openhab.core.thing.internal.ThingRegistryImpl.new
           mtr = org.openhab.core.automation.internal.type.ModuleTypeRegistryImpl.new
           rr = org.openhab.core.automation.internal.RuleRegistryImpl.new
@@ -206,7 +232,6 @@ module OpenHAB
           em.add_event_factory(ief)
 
           # set up the rules engine part 2
-          bc = BundleContext.new(em)
           k = org.openhab.core.automation.internal.module.factory.CoreModuleHandlerFactory
           # depending on OH version, this class is set up differently
           cmhf = begin
