@@ -25,6 +25,7 @@ Gem::Specification.new do |s|
   s.add_dependency "jar-dependencies", "~> 0.4"
   s.add_dependency "net-http-persistent", "~> 4.0"
   s.add_dependency "openhab-scripting", "~> 4.42"
+  s.add_dependency "rspec-core", "~> 3.11"
   s.add_dependency "ruby-maven", "~> 3.3"
 
   s.add_development_dependency "rake", "~> 13.0"
