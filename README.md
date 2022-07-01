@@ -106,6 +106,11 @@ OpenHAB::Log.logger("org.openhab.core.automation").level = :debug
 OpenHAB::Log.root.level = :debug
 OpenHAB::Log.events.level = :info
 ```
+ * Sometimes items are set to `autoupdate="false"` in production to ensure the
+   devices responds, but you don't really care about the device in tests, you
+   just want to check if the effects of a rule happened. You can enable
+   autoupdating of all items by calling `autoupdate_all_items` from either
+   your spec itself, or a `before` block.
 
 
 
