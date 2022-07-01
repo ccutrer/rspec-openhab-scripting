@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-# rubocop:disable Style/GlobalVars
 module RSpec
   module OpenHAB
     module Items
@@ -76,4 +75,3 @@ module RSpec
     end
   end
 end
-# rubocop:enable Style/GlobalVars

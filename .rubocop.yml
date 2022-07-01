@@ -25,6 +25,12 @@ Style/BlockDelimiters:
   IgnoredMethods: []
 Style/Documentation:
   Enabled: false
+Style/GlobalVars:
+  AllowedVariables:
+   - $ir
+   - $rules
+   - $se
+   - $scriptExtension
 Style/HashSyntax:
   EnforcedStyle: ruby19_no_mixed_keys
 Style/PercentQLiterals:

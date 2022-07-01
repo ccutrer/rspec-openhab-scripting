@@ -213,7 +213,7 @@ module OpenHAB
           se = org.openhab.core.automation.module.script.rulesupport.internal
                   .RuleSupportScriptExtension.new(rr, srp, scmhf, scmtp, spmhf)
           sew = ScriptExtensionManagerWrapper.new(se)
-          $se = $scriptExtension = sew # rubocop:disable Style/GlobalVars
+          $se = $scriptExtension = sew
 
           # need to create some singletons referencing registries
           org.openhab.core.model.script.ScriptServiceUtil.new(ir, tr, ep, nil, nil)

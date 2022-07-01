@@ -3,7 +3,6 @@
 RSpec.configure do |config|
   org.openhab.core.items.GenericItem.field_reader :eventPublisher
 
-  # rubocop:disable Style/GlobalVars
   config.before(:each) do
     ep = $ir.eventPublisher
 
@@ -20,5 +19,4 @@ RSpec.configure do |config|
       item.event_publisher = ep
     end
   end
-  # rubocop:enable Style/GlobalVars
 end
