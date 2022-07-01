@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    rspec-openhab-scripting (0.0.4-java)
+    rspec-openhab-scripting (0.0.5-java)
       faraday_middleware (~> 1.1)
       jar-dependencies (~> 0.4)
       net-http-persistent (~> 4.0)
