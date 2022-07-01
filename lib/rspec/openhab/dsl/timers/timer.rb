@@ -15,11 +15,8 @@ module OpenHAB
         Timers.timer_manager.add(self)
       end
 
-      def reschedule(duration = nil)
-        duration ||= @duration
-
+      def reschedule(_duration = nil)
         Timers.timer_manager.add(self)
-        reschedule(OpenHAB::DSL.to_zdt(duration))
       end
 
       #
@@ -33,6 +30,10 @@ module OpenHAB
 
       def terminated?; end
       alias_method :has_terminated, :terminated?
+
+      def is_active # rubocop:disable Naming/PredicateName
+        false
+      end
 
       private
 
