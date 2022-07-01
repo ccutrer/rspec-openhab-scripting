@@ -34,10 +34,10 @@ maven_require do
   require "jar tech.units, indriya, 2.1.3"
 
   require "jar org.openhab.core.bundles, org.openhab.core, #{openhab_version}"
-  require "jar org.openhab.core.bundles, org.openhab.core.config.core, #{openhab_version}"
   require "jar org.openhab.core.bundles, org.openhab.core.automation, #{openhab_version}"
   require "jar org.openhab.core.bundles, org.openhab.core.automation.module.script, #{openhab_version}"
   require "jar org.openhab.core.bundles, org.openhab.core.automation.module.script.rulesupport, #{openhab_version}"
+  require "jar org.openhab.core.bundles, org.openhab.core.config.core, #{openhab_version}"
   require "jar org.openhab.core.bundles, org.openhab.core.io.monitor, #{openhab_version}"
   require "jar org.openhab.core.bundles, org.openhab.core.model.core, #{openhab_version}"
   require "jar org.openhab.core.bundles, org.openhab.core.model.script, #{openhab_version}"
@@ -64,6 +64,7 @@ OpenHAB::DSL::Imports.import_presets
 
 require "openhab"
 
+require "rspec/openhab/actions"
 require "rspec/openhab/core/cron_scheduler"
 
 # RSpec additions

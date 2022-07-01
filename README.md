@@ -12,7 +12,6 @@ automatically.
 
 At this time, the gem is barely past proof of concept. There are several
 limitations that will hopefully be resolved as it matures:
- * actions may or may not work (you probably want to stub them anyway)
  * persistence (item history) will not work
 
 ## Usage
@@ -108,6 +107,9 @@ OpenHAB::Log.events.level = :info
  * Differing from when OpenHAB loads rules, all rules are loaded into a single
    JRuby execution context, so changes to globals in one file will affect other
    files.
+ * Some actions may not be available; you should stub them out if you use them.
+   Core actions like `notify`, `say`, and `play_sound` are stubbed to only log
+   a message (at debug level).
 
 ## Configuration
 
