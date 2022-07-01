@@ -66,11 +66,8 @@ require "openhab"
 
 require "rspec/openhab/core/cron_scheduler"
 
-# openhab-scripting uses a require_relative, so our override doesn't get used
-OpenHAB::DSL.send(:remove_const, :Timer)
-require_relative "rspec/openhab/dsl/timers/timer"
-
 # RSpec additions
+require "rspec/core"
 require "rspec/openhab/dsl/rules/rspec"
 require "rspec/openhab/state"
 require "rspec/openhab/trigger"
@@ -92,6 +89,6 @@ OPENHAB_AUTOMATION_PATH = "#{org.openhab.core.OpenHAB.config_folder}/automation/
 Dir["#{OPENHAB_AUTOMATION_PATH}/*.rb"].each do |f|
   load f
 rescue Exception => e # rubocop:disable Lint/RescueException
-  warn "Failed loading #{f}: #{e}"
+  warn "Failed loading #{f}: #{e.inspect}"
   warn e.backtrace
 end

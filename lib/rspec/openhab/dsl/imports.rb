@@ -216,7 +216,8 @@ module OpenHAB
           $se = $scriptExtension = sew
 
           # need to create some singletons referencing registries
-          org.openhab.core.model.script.ScriptServiceUtil.new(ir, tr, ep, nil, nil)
+          scheduler = org.openhab.core.internal.scheduler.SchedulerImpl.new
+          org.openhab.core.model.script.ScriptServiceUtil.new(ir, tr, ep, nil, scheduler)
           org.openhab.core.model.script.internal.engine.action.SemanticsActionService.new(ir)
 
           # link up event bus infrastructure

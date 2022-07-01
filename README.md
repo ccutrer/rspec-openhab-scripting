@@ -14,13 +14,6 @@ At this time, the gem is barely past proof of concept. There are several
 limitations that will hopefully be resolved as it matures:
  * actions may or may not work (you probably want to stub them anyway)
  * persistence (item history) will not work
- * timers don't work. It's intended to make them work properly, but you'll
-   likely want to stub them anyway to avoid wallclock time delays in your
-   tests. Maybe a framework to make them easy to stub, and then execute
-   on demand?
- * differing from when OpenHAB loads rules, all rules are loaded into a single
-   JRuby execution context, so changes to globals in one file will affect other
-   files.
 
 ## Usage
 
@@ -112,8 +105,9 @@ OpenHAB::Log.events.level = :info
    just want to check if the effects of a rule happened. You can enable
    autoupdating of all items by calling `autoupdate_all_items` from either
    your spec itself, or a `before` block.
-
-
+ * Differing from when OpenHAB loads rules, all rules are loaded into a single
+   JRuby execution context, so changes to globals in one file will affect other
+   files.
 
 ## Configuration
 
