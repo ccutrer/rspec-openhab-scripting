@@ -1,10 +1,8 @@
 # frozen_string_literal: true
 
 RSpec.configure do |config|
-  org.openhab.core.items.GenericItem.field_reader :eventPublisher
-
   config.before(:each) do
-    ep = $ir.eventPublisher
+    ep = $ir.event_publisher
 
     # stash event publishers to avoid triggering any rules
     $ir.for_each do |_provider, item|
