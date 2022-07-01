@@ -5,12 +5,11 @@ module RSpec
     module Wait
       def wait_for_rules
         loop do
-          break if java.lang.Thread.all_stack_traces.keys.all? do |t|
-            !t.name.match?(/^OH-rule-/) ||
-            [java.lang.Thread::State::WAITING, java.lang.Thread::State::TIMED_WAITING].include?(t.state)
-          end
-
           sleep(0.1)
+          break if java.lang.Thread.all_stack_traces.keys.all? do |t|
+                     !t.name.match?(/^OH-rule-/) ||
+                     [java.lang.Thread::State::WAITING, java.lang.Thread::State::TIMED_WAITING].include?(t.state)
+                   end
         end
       end
     end

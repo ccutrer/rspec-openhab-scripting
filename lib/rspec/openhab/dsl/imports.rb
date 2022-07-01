@@ -137,6 +137,7 @@ module OpenHAB
           ir = org.openhab.core.internal.items.ItemRegistryImpl.new(mr)
           ir.managed_provider = mip = org.openhab.core.items.ManagedItemProvider.new(ss, nil)
           ir.add_provider(mip)
+          ir.event_publisher = ep
           tr = org.openhab.core.thing.internal.ThingRegistryImpl.new
           mtr = org.openhab.core.automation.internal.type.ModuleTypeRegistryImpl.new
           rr = org.openhab.core.automation.internal.RuleRegistryImpl.new
