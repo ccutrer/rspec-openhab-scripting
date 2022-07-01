@@ -79,10 +79,16 @@ require "rspec/openhab/items"
 
 RSpec::OpenHAB::Items.populate_items_from_api(api)
 
+# make bundler/inline _not_ destroy the already existing load path
+module Bundler
+  module SharedHelpers
+    def clean_load_path; end
+  end
+end
+
 # load rules files
 OPENHAB_AUTOMATION_PATH = "#{org.openhab.core.OpenHAB.config_folder}/automation/jsr223/ruby/personal"
 
-# set up some environment the rules files expect
 Dir["#{OPENHAB_AUTOMATION_PATH}/*.rb"].each do |f|
   load f
 rescue Exception => e # rubocop:disable Lint/RescueException

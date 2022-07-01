@@ -37,12 +37,10 @@ OpenHAB.
 ```ruby
 source "https://rubygems.org"
 
-gem "rspec", "~> 3.11"
-gem "rspec-openhab-scripting", "~> 0.0.1"
-
-# any additional gems your rules use from a `gemfile` from `bundler/inline`
-# also need to be included in this bundle, since `bundler/inline` will be
-# ignored as it's running in the context of the outer bundle.
+group(:test) do
+  gem "rspec", "~> 3.11"
+  gem "rspec-openhab-scripting", "~> 0.0.1"
+end
 ```
  * Run `gem install bundler`
  * Run `bundle install`
@@ -50,7 +48,10 @@ gem "rspec-openhab-scripting", "~> 0.0.1"
  * Edit the generated `spec/spec_helper.rb` to satisfy your preferences, and
  add:
 ```ruby
-require "rspec-openhab-scripting"
+require "rubygems"
+require "bundler"
+
+Bundler.require(:default, :test)
 ```
  * Create some specs! An example of `spec/switches_spec.rb`:
 ```ruby
@@ -78,9 +79,9 @@ end
  * Run your specs: `bundle exec rspec`
 
 Bonus, if you want to play in a sandbox to explore what's available (either for
-specs or for writing rules) via a REPL, run `bundle console`. It will first
-load up the OpenHAB dependencies, and then load your items and rules in, then
-drop you into IRB.
+specs or for writing rules) via a REPL, run `bundle console`, and inside of that
+run `Bundler.require(:test)`. It will first load up the OpenHAB dependencies,
+and then load your items and rules in, then drop you into IRB.
 
 ### Spec Writing Tips
 
