@@ -75,6 +75,9 @@ require "rspec/openhab/state"
 require "rspec/openhab/timer"
 require "rspec/openhab/trigger"
 require "rspec/openhab/wait"
+RSpec.configure do |config|
+  config.include OpenHAB::Core::EntityLookup
+end
 
 RSpec::OpenHAB::Items.populate_items_from_api(api)
 
