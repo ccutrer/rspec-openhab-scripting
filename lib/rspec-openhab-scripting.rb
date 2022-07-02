@@ -58,6 +58,8 @@ end
 # global variables need to be set up before openhab-scripting loads
 require "openhab/log/logger"
 require "rspec/openhab/core/logger"
+# during testing, we don't want "regular" output from rules
+OpenHAB::Log.logger("org.openhab.automation.jruby.runtime").level = :warn
 require "openhab/dsl/imports"
 OpenHAB::DSL::Imports.api = api
 OpenHAB::DSL::Imports.import_presets
