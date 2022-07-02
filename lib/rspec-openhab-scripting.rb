@@ -70,10 +70,11 @@ require "rspec/openhab/core/cron_scheduler"
 # RSpec additions
 require "rspec/core"
 require "rspec/openhab/dsl/rules/rspec"
+require "rspec/openhab/items"
 require "rspec/openhab/state"
+require "rspec/openhab/timer"
 require "rspec/openhab/trigger"
 require "rspec/openhab/wait"
-require "rspec/openhab/items"
 
 RSpec::OpenHAB::Items.populate_items_from_api(api)
 

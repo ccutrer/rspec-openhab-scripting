@@ -88,7 +88,8 @@ and then load your items and rules in, then drop you into IRB.
    send a command or update in your spec, and immediately check the
    resulting state of items. Instead, you should use the `wait_for_rules`
    helper method that will wait until all rule threads are blocked (done
-   executing).
+   executing). You can also use `wait_for_timers` to wait for all timers
+   to complete, or `wait_for_background_tasks` to ask for either one.
  * Logging levels can be changed in your code. Setting a log level for a logger
    further up the chain (separated by dots) applies to all loggers underneath
    it. The events logger (corresponding to what normally goes to events.log)
