@@ -33,6 +33,12 @@ group(:test) do
   gem "rspec", "~> 3.11"
   gem "rspec-openhab-scripting", "~> 0.0.1"
 end
+
+group(:rules) do
+  # include any gems you reference from `gemfile` calls in your rules so that
+  # they'll already be available in the rules, and won't need to be
+  # re-installed on every run, slowing down spec runs considerably
+end
 ```
  * Run `gem install bundler`
  * Run `bundle install`
