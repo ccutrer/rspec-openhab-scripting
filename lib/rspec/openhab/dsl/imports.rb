@@ -157,6 +157,8 @@ module OpenHAB
           OpenHAB::Core::OSGI.register_service("org.openhab.core.items.MetadataRegistry", mr)
           mr.managed_provider = mmp = org.openhab.core.internal.items.ManagedMetadataProviderImpl.new(ss)
           mr.add_provider(mmp)
+          gmp = org.openhab.core.model.item.internal.GenericMetadataProvider.new
+          mr.add_provider(gmp)
           ir = org.openhab.core.internal.items.ItemRegistryImpl.new(mr)
           ir.managed_provider = mip = org.openhab.core.items.ManagedItemProvider.new(ss, nil)
           ir.add_provider(mip)
@@ -171,6 +173,22 @@ module OpenHAB
           rr.managed_provider = mrp = org.openhab.core.automation.ManagedRuleProvider.new(ss)
           rr.add_provider(mrp)
           iclr = org.openhab.core.thing.link.ItemChannelLinkRegistry.new(tr, ir)
+          ctr = org.openhab.core.thing.type.ChannelTypeRegistry.new
+          ttr = org.openhab.core.thing.type.ThingTypeRegistry.new(ctr)
+
+          safe_emf = org.openhab.core.model.core.internal.SafeEMFImpl.new
+          model_repository = org.openhab.core.model.core.internal.ModelRepositoryImpl.new(safe_emf)
+
+          # set up state descriptions
+          sds = org.openhab.core.internal.service.StateDescriptionServiceImpl.new
+          gip = org.openhab.core.model.item.internal.GenericItemProvider.new(model_repository, gmp, {})
+          sds.add_state_description_fragment_provider(gip)
+          msdfp = org.openhab.core.internal.items.MetadataStateDescriptionFragmentProvider.new(mr, {})
+          sds.add_state_description_fragment_provider(msdfp)
+          csdp = org.openhab.core.thing.internal.ChannelStateDescriptionProvider.new(iclr, ttr, tr)
+          csdp.activate(org.osgi.framework.Constants::SERVICE_RANKING => java.lang.Integer.new(-1))
+          sds.add_state_description_fragment_provider(csdp)
+          ir.state_description_service = sds
 
           # set up stuff accessed from rules
           preset = org.openhab.core.automation.module.script.internal.defaultscope

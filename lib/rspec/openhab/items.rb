@@ -35,6 +35,8 @@ module RSpec
             item_json["metadata"]&.each do |key, config|
               item.meta[key] = config["value"], config["config"]
             end
+            item.meta["stateDescription"] = item_json["stateDescription"] if item_json["stateDescription"]
+            item.category = item_json["category"] if item_json["category"]
 
             $ir.add(item)
           end

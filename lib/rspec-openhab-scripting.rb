@@ -40,6 +40,7 @@ maven_require do
   require "jar org.openhab.core.bundles, org.openhab.core.config.core, #{openhab_version}"
   require "jar org.openhab.core.bundles, org.openhab.core.io.monitor, #{openhab_version}"
   require "jar org.openhab.core.bundles, org.openhab.core.model.core, #{openhab_version}"
+  require "jar org.openhab.core.bundles, org.openhab.core.model.item, #{openhab_version}"
   require "jar org.openhab.core.bundles, org.openhab.core.model.script, #{openhab_version}"
   require "jar org.openhab.core.bundles, org.openhab.core.semantics, #{openhab_version}"
   require "jar org.openhab.core.bundles, org.openhab.core.thing, #{openhab_version}"
