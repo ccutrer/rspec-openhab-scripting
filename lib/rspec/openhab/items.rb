@@ -8,25 +8,24 @@ module RSpec
           all_items = api.items
 
           gfh = org.openhab.core.internal.items.GroupFunctionHelper.new
+          item_factory = org.openhab.core.library.CoreItemFactory.new
 
           all_items.each do |item_json|
-            type, _dimension = item_json["type"].split(":")
+            full_type = item_json["type"]
+            name = item_json["name"]
+
+            type, _dimension = full_type.split(":")
             if type == "Group"
-              if item_json["groupType"]
-                type, _dimension = item_json["groupType"].split(":")
-                klass = ::OpenHAB::DSL::Items.const_get(:"#{type}Item")
-                base_item = klass.new(item_json["name"])
-              end
+              base_item = item_factory.create_item(item_json["groupType"], name) if item_json["groupType"]
               if item_json["function"]
                 dto = org.openhab.core.items.dto.GroupFunctionDTO.new
                 dto.name = item_json.dig("function", "name")
                 dto.params = item_json.dig("function", "params")
                 function = gfh.create_group_function(dto, base_item)
               end
-              item = GroupItem.new(item_json["name"], base_item, function)
+              item = GroupItem.new(name, base_item, function)
             else
-              klass = ::OpenHAB::DSL::Items.const_get(:"#{type}Item")
-              item = klass.new(item_json["name"])
+              item = item_factory.create_item(full_type, name)
             end
 
             item.label = item_json["label"]
