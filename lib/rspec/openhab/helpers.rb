@@ -11,7 +11,7 @@ module RSpec
       end
 
       def execute_timers
-        OpenHAB::DSL::Timers.timer_manager.execute_timers
+        ::OpenHAB::DSL::Timers.timer_manager.execute_timers
       end
 
       def suspend_rules(&block)

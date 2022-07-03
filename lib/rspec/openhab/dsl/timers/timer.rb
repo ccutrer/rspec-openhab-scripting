@@ -45,7 +45,7 @@ module OpenHAB
         raise "Timer already cancelled" if cancelled?
         raise "Timer already executed" if terminated?
 
-        @block.call
+        @block.call(self)
         Timers.timer_manager.delete(self)
         @executed = true
       end
