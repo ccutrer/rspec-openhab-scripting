@@ -80,11 +80,9 @@ require_relative "rspec/openhab/dsl/timers/timer"
 require "rspec/core"
 require "rspec/openhab/dsl/rules/rspec"
 require "rspec/openhab/items"
-require "rspec/openhab/quiesce"
-require "rspec/openhab/state"
+require "rspec/openhab/helpers"
+require "rspec/openhab/hooks"
 require "rspec/openhab/suspend_rules"
-require "rspec/openhab/trigger"
-require "rspec/openhab/wait"
 
 RSpec.configure do |config|
   config.include OpenHAB::Core::EntityLookup

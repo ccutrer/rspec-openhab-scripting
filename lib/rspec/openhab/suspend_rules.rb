@@ -51,14 +51,6 @@ module RSpec
           @suspended
         end
       end
-
-      def suspend_rules(&block)
-        SuspendRules.suspend_rules(&block)
-      end
-    end
-
-    RSpec.configure do |config|
-      config.include(SuspendRules)
     end
   end
 end
