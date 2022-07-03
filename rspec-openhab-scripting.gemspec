@@ -27,6 +27,7 @@ Gem::Specification.new do |s|
   s.add_dependency "openhab-scripting", "~> 4.42"
   s.add_dependency "rspec-core", "~> 3.11"
   s.add_dependency "ruby-maven", "~> 3.3"
+  s.add_dependency "timecop", "~> 0.9"
 
   s.add_development_dependency "rake", "~> 13.0"
   s.add_development_dependency "rubocop", "~> 1.23"

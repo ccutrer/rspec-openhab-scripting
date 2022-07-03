@@ -12,6 +12,9 @@ AllCops:
 Metrics:
   Enabled: false
 
+Lint/RescueException:
+  Enabled: false # we need to rescue Java exceptions quite a bit
+
 Naming/FileName:
   Exclude:
     - lib/rspec-openhab-scripting.rb

@@ -57,6 +57,7 @@ def oh.config_folder
 end
 
 # global variables need to be set up before openhab-scripting loads
+require "timecop"
 require "openhab/log/logger"
 require "rspec/openhab/core/logger"
 
@@ -71,6 +72,9 @@ require "openhab"
 
 require "rspec/openhab/actions"
 require "rspec/openhab/core/cron_scheduler"
+
+# override several timer methods
+require_relative "rspec/openhab/dsl/timers/timer"
 
 # RSpec additions
 require "rspec/core"
@@ -102,7 +106,7 @@ OPENHAB_AUTOMATION_PATH = "#{org.openhab.core.OpenHAB.config_folder}/automation/
 
 Dir["#{OPENHAB_AUTOMATION_PATH}/*.rb"].each do |f|
   load f
-rescue Exception => e # rubocop:disable Lint/RescueException
+rescue Exception => e
   warn "Failed loading #{f}: #{e.inspect}"
   warn e.backtrace
 end

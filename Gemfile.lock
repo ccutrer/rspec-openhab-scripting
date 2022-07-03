@@ -8,6 +8,7 @@ PATH
       openhab-scripting (~> 4.42)
       rspec-core (~> 3.11)
       ruby-maven (~> 3.3)
+      timecop (~> 0.9)
 
 GEM
   remote: https://rubygems.org/
@@ -85,6 +86,7 @@ GEM
     ruby-maven-libs (3.3.9)
     ruby-progressbar (1.11.0)
     ruby2_keywords (0.0.5)
+    timecop (0.9.5)
     unicode-display_width (2.2.0)
 
 PLATFORMS

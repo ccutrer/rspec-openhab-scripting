@@ -29,6 +29,8 @@ module RSpec
       module Timers
         def after(*)
           return if SuspendRules.suspended?
+
+          super
         end
       end
       private_constant :Timers
