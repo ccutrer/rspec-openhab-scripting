@@ -117,6 +117,8 @@ OpenHAB::Log.events.level = :info
  * Some actions may not be available; you should stub them out if you use them.
    Core actions like `notify`, `say`, and `play_sound` are stubbed to only log
    a message (at debug level).
+ * You may want to avoid rules from firing while setting up the proper state for
+   a test. In that case, use the `suspend_rules {}` helper.
 
 ## Configuration
 

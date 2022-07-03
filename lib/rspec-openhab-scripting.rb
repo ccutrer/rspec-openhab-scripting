@@ -59,8 +59,10 @@ end
 # global variables need to be set up before openhab-scripting loads
 require "openhab/log/logger"
 require "rspec/openhab/core/logger"
+
 # during testing, we don't want "regular" output from rules
 OpenHAB::Log.logger("org.openhab.automation.jruby.runtime").level = :warn
+OpenHAB::Log.logger("org.openhab.automation.jruby.logger").level = :warn
 require "openhab/dsl/imports"
 OpenHAB::DSL::Imports.api = api
 OpenHAB::DSL::Imports.import_presets
@@ -74,15 +76,19 @@ require "rspec/openhab/core/cron_scheduler"
 require "rspec/core"
 require "rspec/openhab/dsl/rules/rspec"
 require "rspec/openhab/items"
+require "rspec/openhab/quiesce"
 require "rspec/openhab/state"
-require "rspec/openhab/timer"
+require "rspec/openhab/suspend_rules"
 require "rspec/openhab/trigger"
 require "rspec/openhab/wait"
+
 RSpec.configure do |config|
   config.include OpenHAB::Core::EntityLookup
 end
 
-RSpec::OpenHAB::Items.populate_items_from_api(api)
+RSpec::OpenHAB::SuspendRules.suspend_rules do
+  RSpec::OpenHAB::Items.populate_items_from_api(api)
+end
 
 # make bundler/inline _not_ destroy the already existing load path
 module Bundler

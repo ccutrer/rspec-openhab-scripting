@@ -7,11 +7,11 @@ module RSpec
         wait_for_background_tasks(timers: false)
       end
 
-      def wait_for_timers
-        wait_for_background_tasks(rules: false)
+      def wait_for_timers(future_timers: true)
+        wait_for_background_tasks(rules: false, future_timers: future_timers)
       end
 
-      def wait_for_background_tasks(rules: true, timers: true)
+      def wait_for_background_tasks(rules: true, timers: true, future_timers: timers)
         loop do
           sleep 0.1
           next if java.lang.Thread.all_stack_traces.any? do |(t, stack)|
@@ -49,7 +49,7 @@ module RSpec
           end
 
           # no need to retry if there were no timers
-          break unless timers && wait_for_next_timer
+          break unless future_timers && wait_for_next_timer
         end
       end
 
