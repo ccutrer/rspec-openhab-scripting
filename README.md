@@ -57,8 +57,7 @@ RSpec.describe "switches.rb" do
   describe "gFullOn" do
     it "works" do
       GuestCans_Dimmer.update(0)
-      GuestCans_Scene.update("1.3")
-      wait_for_rules
+      GuestCans_Scene.update(1.3)
       expect(GuestCans_Dimmer.state).to eq 100
     end
 
