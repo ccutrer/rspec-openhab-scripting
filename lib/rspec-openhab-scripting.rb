@@ -78,7 +78,6 @@ require_relative "rspec/openhab/dsl/timers/timer"
 
 # RSpec additions
 require "rspec/core"
-require "rspec/openhab/dsl/rules/rspec"
 require "rspec/openhab/items"
 require "rspec/openhab/helpers"
 require "rspec/openhab/hooks"
@@ -102,9 +101,11 @@ end
 # load rules files
 OPENHAB_AUTOMATION_PATH = "#{org.openhab.core.OpenHAB.config_folder}/automation/jsr223/ruby/personal"
 
-Dir["#{OPENHAB_AUTOMATION_PATH}/*.rb"].each do |f|
-  load f
-rescue Exception => e
-  warn "Failed loading #{f}: #{e.inspect}"
-  warn e.backtrace
+RSpec::OpenHAB::SuspendRules.suspend_rules do
+  Dir["#{OPENHAB_AUTOMATION_PATH}/*.rb"].each do |f|
+    load f
+  rescue Exception => e
+    warn "Failed loading #{f}: #{e.inspect}"
+    warn e.backtrace
+  end
 end
