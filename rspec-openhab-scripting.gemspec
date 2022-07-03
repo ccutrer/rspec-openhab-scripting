@@ -21,7 +21,7 @@ Gem::Specification.new do |s|
 
   s.required_ruby_version = ">= 2.5"
 
-  s.add_dependency "faraday_middleware", "~> 1.1"
+  s.add_dependency "faraday", "~> 2.3"
   s.add_dependency "jar-dependencies", "~> 0.4"
   s.add_dependency "net-http-persistent", "~> 4.0"
   s.add_dependency "openhab-scripting", "~> 4.42"

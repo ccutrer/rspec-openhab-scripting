@@ -1,15 +1,13 @@
 # frozen_string_literal: true
 
-require "faraday_middleware"
+require "faraday"
 
 module OpenHAB
   class API
     def initialize(url)
       @faraday = Faraday.new(url) do |f|
-        f.request :retry
         f.response :raise_error
         f.response :json
-        f.adapter :net_http_persistent
         f.path_prefix = "/rest/"
       end
     end
