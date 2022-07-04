@@ -75,6 +75,7 @@ require "rspec/openhab/core/cron_scheduler"
 
 # override several timer methods
 require_relative "rspec/openhab/dsl/timers/timer"
+require_relative "rspec/openhab/dsl/rules/triggers/watch"
 
 # RSpec additions
 require "rspec/core"
