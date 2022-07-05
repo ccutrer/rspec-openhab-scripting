@@ -73,7 +73,8 @@ require "openhab"
 require "rspec/openhab/actions"
 require "rspec/openhab/core/cron_scheduler"
 
-# override several timer methods
+# override several openhab-scripting methods
+require_relative "rspec/openhab/core/item_proxy"
 require_relative "rspec/openhab/dsl/timers/timer"
 require_relative "rspec/openhab/dsl/rules/triggers/watch"
 
