@@ -10,9 +10,11 @@ RSpec.configure do |config|
       end
     end
   end
+
   config.after do
     OpenHAB::DSL::Timers.timer_manager.cancel_all
     Timecop.return
     restore_autoupdate_items
+    RSpec::OpenHAB::Core::Mocks::PersistenceService.instance.reset
   end
 end

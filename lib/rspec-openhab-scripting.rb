@@ -42,9 +42,11 @@ maven_require do
   require "jar org.openhab.core.bundles, org.openhab.core.model.core, #{openhab_version}"
   require "jar org.openhab.core.bundles, org.openhab.core.model.item, #{openhab_version}"
   require "jar org.openhab.core.bundles, org.openhab.core.model.script, #{openhab_version}"
+  require "jar org.openhab.core.bundles, org.openhab.core.persistence, #{openhab_version}"
   require "jar org.openhab.core.bundles, org.openhab.core.semantics, #{openhab_version}"
   require "jar org.openhab.core.bundles, org.openhab.core.thing, #{openhab_version}"
 end
+java_import org.openhab.core.persistence.extensions.PersistenceExtensions
 
 require "openhab/version"
 
@@ -64,6 +66,7 @@ require "rspec/openhab/core/logger"
 # during testing, we don't want "regular" output from rules
 OpenHAB::Log.logger("org.openhab.automation.jruby.runtime").level = :warn
 OpenHAB::Log.logger("org.openhab.automation.jruby.logger").level = :warn
+require "rspec/openhab/core/mocks/persistence_service"
 require "openhab/dsl/imports"
 OpenHAB::DSL::Imports.api = api
 OpenHAB::DSL::Imports.import_presets

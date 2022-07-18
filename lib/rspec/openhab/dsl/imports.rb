@@ -400,6 +400,17 @@ module OpenHAB
           el = org.openhab.core.io.monitor.internal.EventLogger.new(rs)
           em.add_event_subscriber(el)
           el.on_ready_marker_added(nil)
+
+          # set up persistence
+          psr = org.openhab.core.persistence.internal.PersistenceServiceRegistryImpl.new
+          org.openhab.core.persistence.extensions.PersistenceExtensions.new(psr)
+          psr.activate("default" => "default")
+          ps = RSpec::OpenHAB::Core::Mocks::PersistenceService.instance
+          psr.add_persistence_service(ps)
+
+          pm = org.openhab.core.persistence.internal.PersistenceManagerImpl.new(nil, ir, sc, rs)
+          pm.add_persistence_service(ps)
+          pm.on_ready_marker_added(nil)
         end
       end
     end

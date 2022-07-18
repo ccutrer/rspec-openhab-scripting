@@ -8,12 +8,6 @@ out those actions in your tests. The autoupdate manager is running, so any
 commands sent to items that aren't marked as `autoupdate="false"` will update
 automatically.
 
-## BETA
-
-At this time, the gem is barely past proof of concept. There are several
-limitations that will hopefully be resolved as it matures:
- * persistence (item history) will not work
-
 ## Usage
 
 You must run tests on an actual OpenHAB instance running, with your items
@@ -116,6 +110,8 @@ OpenHAB::Log.events.level = :info
    a message (at debug level).
  * You may want to avoid rules from firing while setting up the proper state for
    a test. In that case, use the `suspend_rules {}` helper.
+ * Item persistence is enabled by default using an in-memory story that only
+   tracks changes to items.
 
 ## Configuration
 
