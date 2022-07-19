@@ -4,11 +4,12 @@ require "faraday"
 
 module OpenHAB
   class API
-    def initialize(url)
+    def initialize(url, token = nil)
       @faraday = Faraday.new(url) do |f|
         f.response :raise_error
         f.response :json
         f.path_prefix = "/rest/"
+        f.headers = { "X-OPENHAB-TOKEN" => token } if token
       end
     end
 
@@ -34,6 +35,22 @@ module OpenHAB
       @faraday.get("items/#{name}").body
     rescue Faraday::ResourceNotFound
       nil
+    end
+
+    def channel_types
+      @faraday.get("channel-types").body
+    end
+
+    def thing_types
+      @faraday.get("thing-types").body
+    end
+
+    def things
+      @faraday.get("things").body
+    end
+
+    def authenticated?
+      @faraday.headers.key?("X-OPENHAB-TOKEN")
     end
 
     private

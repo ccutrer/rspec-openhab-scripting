@@ -68,6 +68,12 @@ module OpenHAB
         def add_bundle_listener(listener); end
       end
 
+      class BundleResolver
+        include org.openhab.core.util.BundleResolver
+
+        def resolve_bundle(klass); end
+      end
+
       # don't depend on org.openhab.core.test
       class VolatileStorageService
         include org.openhab.core.storage.StorageService
@@ -190,7 +196,7 @@ module OpenHAB
           event_factory.create_event(type, topic, payload, source)
         rescue Exception => e
           logger.warn("Creation of event failed, because one of the " \
-                      "registered event factories has thrown an exception: #{e}")
+                      "registered event factories has thrown an exception: #{e.inspect}")
           nil
         end
 
@@ -201,7 +207,9 @@ module OpenHAB
               begin
                 event_subscriber.receive(event)
               rescue Exception => e
-                logger.warn("Dispatching/filtering event for subscriber '#{event_subscriber.class}' failed: #{e}")
+                logger.warn(
+                  "Dispatching/filtering event for subscriber '#{event_subscriber.class}' failed: #{e.inspect}"
+                )
               end
             else
               logger.trace("Skip event subscriber (#{event_subscriber.class}) because of its filter.")
@@ -217,7 +225,7 @@ module OpenHAB
         include Singleton
 
         def submit(runnable)
-          runnable.run
+          runnable.respond_to?(:run) ? runnable.run : runnable.call
 
           java.util.concurrent.CompletableFuture.completed_future(nil)
         end
@@ -230,6 +238,40 @@ module OpenHAB
 
         def shutdown?
           false
+        end
+      end
+
+      class SafeCaller
+        include org.openhab.core.common.SafeCaller
+        include org.openhab.core.common.SafeCallerBuilder
+
+        def create(target, _interface_type)
+          @target = target
+          self
+        end
+
+        def build
+          @target
+        end
+
+        def with_timeout(_timeout)
+          self
+        end
+
+        def with_identifier(_identifier)
+          self
+        end
+
+        def on_exception(_handler)
+          self
+        end
+
+        def on_timeout(_handler)
+          self
+        end
+
+        def with_async
+          self
         end
       end
 
@@ -275,7 +317,7 @@ module OpenHAB
           # the registries!
           ss = VolatileStorageService.new
           mr = org.openhab.core.internal.items.MetadataRegistryImpl.new
-          OpenHAB::Core::OSGI.register_service("org.openhab.core.items.MetadataRegistry", mr)
+          OpenHAB::Core::OSGI.register_service(mr)
           mr.managed_provider = mmp = org.openhab.core.internal.items.ManagedMetadataProviderImpl.new(ss)
           mr.add_provider(mmp)
           gmp = org.openhab.core.model.item.internal.GenericMetadataProvider.new
@@ -286,16 +328,24 @@ module OpenHAB
           ir.event_publisher = ep
           up = org.openhab.core.internal.i18n.I18nProviderImpl.new(cc)
           ir.unit_provider = up
-          ir.item_state_converter = org.openhab.core.internal.items.ItemStateConverterImpl.new(up)
+          ir.item_state_converter = isc = org.openhab.core.internal.items.ItemStateConverterImpl.new(up)
           tr = org.openhab.core.thing.internal.ThingRegistryImpl.new
+          tr.managed_provider = mtp = org.openhab.core.thing.ManagedThingProvider.new(ss)
+          tr.add_provider(mtp)
           mtr = org.openhab.core.automation.internal.type.ModuleTypeRegistryImpl.new
           rr = org.openhab.core.automation.internal.RuleRegistryImpl.new
           rr.module_type_registry = mtr
           rr.managed_provider = mrp = org.openhab.core.automation.ManagedRuleProvider.new(ss)
           rr.add_provider(mrp)
           iclr = org.openhab.core.thing.link.ItemChannelLinkRegistry.new(tr, ir)
+          iclr.add_provider(RSpec::OpenHAB::Core::Mocks::ItemChannelLinkProvider.instance)
+          OpenHAB::Core::OSGI.register_service(iclr)
           ctr = org.openhab.core.thing.type.ChannelTypeRegistry.new
+          OpenHAB::Core::OSGI.register_service(ctr)
+          ctr.add_channel_type_provider(RSpec::OpenHAB::Core::Mocks::ChannelTypeProvider.instance)
           ttr = org.openhab.core.thing.type.ThingTypeRegistry.new(ctr)
+          OpenHAB::Core::OSGI.register_service(ttr)
+          ttr.add_thing_type_provider(RSpec::OpenHAB::Core::Mocks::ThingTypeProvider.instance)
 
           safe_emf = org.openhab.core.model.core.internal.SafeEMFImpl.new
           model_repository = org.openhab.core.model.core.internal.ModelRepositoryImpl.new(safe_emf)
@@ -362,9 +412,12 @@ module OpenHAB
           iu = org.openhab.core.internal.items.ItemUpdater.new(ir)
           ief = org.openhab.core.items.events.ItemEventFactory.new
 
-          sc = org.openhab.core.internal.common.SafeCallerImpl.new({})
-          aum = org.openhab.core.thing.internal.AutoUpdateManager.new({ "enabled" => "true" }, nil, ep, iclr, mr, tr)
-          cm = org.openhab.core.thing.internal.CommunicationManager.new(aum, nil, nil, iclr, ir, nil, ep, sc, tr)
+          sc = SafeCaller.new
+          aum = org.openhab.core.thing.internal.AutoUpdateManager.new(
+            { "enabled" => true, "sendOptimisticUpdates" => true }, ctr, ep, iclr, mr, tr
+          )
+          spf = org.openhab.core.thing.internal.profiles.SystemProfileFactory.new(ctr, nil, BundleResolver.new)
+          cm = org.openhab.core.thing.internal.CommunicationManager.new(aum, ctr, spf, iclr, ir, isc, ep, sc, tr)
 
           em.add_event_subscriber(iu)
           em.add_event_subscriber(cm)

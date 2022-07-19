@@ -19,7 +19,7 @@ Gem::Specification.new do |s|
 
   s.files = Dir["{lib,vendor}/**/*"]
 
-  s.required_ruby_version = ">= 2.5"
+  s.required_ruby_version = ">= 2.6"
 
   s.add_dependency "faraday", "~> 2.3"
   s.add_dependency "jar-dependencies", "~> 0.4"

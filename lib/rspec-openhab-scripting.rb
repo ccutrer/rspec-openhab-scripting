@@ -5,7 +5,8 @@
 $LOAD_PATH.unshift(File.expand_path("../vendor/gems/jar-dependencies-1.0.0/lib", __dir__))
 
 require "rspec/openhab/api"
-api = OpenHAB::API.new("http://#{ENV.fetch("OPENHAB_HOST", "localhost")}:#{ENV.fetch("OPENHAB_HTTP_PORT", "8080")}/")
+api = OpenHAB::API.new("http://#{ENV.fetch("OPENHAB_HOST", "localhost")}:#{ENV.fetch("OPENHAB_HTTP_PORT", "8080")}/",
+                       ENV.fetch("OPENHAB_TOKEN", nil))
 
 module OpenHAB
   module Core
@@ -66,7 +67,10 @@ require "rspec/openhab/core/logger"
 # during testing, we don't want "regular" output from rules
 OpenHAB::Log.logger("org.openhab.automation.jruby.runtime").level = :warn
 OpenHAB::Log.logger("org.openhab.automation.jruby.logger").level = :warn
+require "rspec/openhab/core/mocks/channel_type_provider"
+require "rspec/openhab/core/mocks/item_channel_link_provider"
 require "rspec/openhab/core/mocks/persistence_service"
+require "rspec/openhab/core/mocks/thing_type_provider"
 require "openhab/dsl/imports"
 OpenHAB::DSL::Imports.api = api
 OpenHAB::DSL::Imports.import_presets
@@ -93,6 +97,7 @@ RSpec.configure do |config|
 end
 
 RSpec::OpenHAB::SuspendRules.suspend_rules do
+  RSpec::OpenHAB::Items.populate_things_from_api(api) if api.authenticated?
   RSpec::OpenHAB::Items.populate_items_from_api(api)
 end
 

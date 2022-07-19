@@ -3,7 +3,7 @@ require:
   - rubocop-performance
 
 AllCops:
-  TargetRubyVersion: 2.5
+  TargetRubyVersion: 2.6
   NewCops: enable
   Exclude:
     - lib/rspec-openhab-scripting_jars.rb
@@ -34,6 +34,7 @@ Style/GlobalVars:
    - $rules
    - $se
    - $scriptExtension
+   - $things
 Style/HashSyntax:
   EnforcedStyle: ruby19_no_mixed_keys
 Style/PercentQLiterals:

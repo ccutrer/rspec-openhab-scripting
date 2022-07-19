@@ -118,7 +118,11 @@ OpenHAB::Log.events.level = :info
 There are several environment variables you can set to help the gem find the
 necessary dependencies. The defaults should work for an OpenHABian install
 or installation on Ubuntu or Debian with .debs. You may need to customize them
-if your installation is laid out differently.
+if your installation is laid out differently. Additionally, Thing configuration
+information is only available if OPENHAB_TOKEN is set, so if your rules access
+thing or channel information, you should set this. You can obtain it by
+following the instructions at
+https://www.openhab.org/docs/configuration/apitokens.html.
 
 | Variable                 | Default                 | Description                                                         |
 | ------------------------ | ----------------------- | ------------------------------------------------------------------- |
@@ -127,6 +131,7 @@ if your installation is laid out differently.
 | `$OPENHAB_HOME`          | `/usr/share/openhab`    | Location for the OpenHAB installation                               |
 | `$OPENHAB_RUNTIME`       | `$OPENHAB_HOME/runtime` | Location for OpenHAB's private Maven repository containing its JARs |
 | `$OPENHAB_CONF`          | `/etc/openhab`          | Location for userdata, such as rules and items                      |
+| `$OPENHAB_TOKEN`         | N/A                     | Access Token for accessing OpenHAB Rest API                         |
 | `$JARS_LOCAL_MAVEN_REPO` | `~/.m2/repository`      | Location to cache JARs                                              |
 
 Not configurable:
