@@ -70,6 +70,7 @@ OpenHAB::Log.logger("org.openhab.automation.jruby.logger").level = :warn
 require "rspec/openhab/core/mocks/channel_type_provider"
 require "rspec/openhab/core/mocks/item_channel_link_provider"
 require "rspec/openhab/core/mocks/persistence_service"
+require "rspec/openhab/core/mocks/thing_handler"
 require "rspec/openhab/core/mocks/thing_type_provider"
 require "openhab/dsl/imports"
 OpenHAB::DSL::Imports.api = api

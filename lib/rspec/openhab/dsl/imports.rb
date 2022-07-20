@@ -71,7 +71,17 @@ module OpenHAB
       class BundleResolver
         include org.openhab.core.util.BundleResolver
 
-        def resolve_bundle(klass); end
+        def initialize
+          @bundles = {}
+        end
+
+        def register(klass, bundle)
+          @bundles[klass] = bundle
+        end
+
+        def resolve_bundle(klass)
+          @bundles[klass]
+        end
       end
 
       # don't depend on org.openhab.core.test
@@ -104,13 +114,15 @@ module OpenHAB
         INSTALLED = 2
 
         def initialize(*jar_args)
+          return if jar_args.empty?
+
           file = Jars.find_jar(*jar_args)
           @jar = java.util.jar.JarFile.new(file)
           @symbolic_name = jar_args[1]
           @version = org.osgi.framework.Version.new(jar_args[2].tr("-", "."))
         end
 
-        attr_reader :symbolic_name, :version
+        attr_accessor :symbolic_name, :version
 
         def state
           INSTALLED
@@ -313,6 +325,7 @@ module OpenHAB
           bc = BundleContext.new(em)
           cc = ComponentContext.new(bc)
           cc.properties["measurementSystem"] = api.measurement_system if api
+          resolver = BundleResolver.new
 
           # the registries!
           ss = VolatileStorageService.new
@@ -346,6 +359,7 @@ module OpenHAB
           ttr = org.openhab.core.thing.type.ThingTypeRegistry.new(ctr)
           OpenHAB::Core::OSGI.register_service(ttr)
           ttr.add_thing_type_provider(RSpec::OpenHAB::Core::Mocks::ThingTypeProvider.instance)
+          cgtr = org.openhab.core.thing.type.ChannelGroupTypeRegistry.new
 
           safe_emf = org.openhab.core.model.core.internal.SafeEMFImpl.new
           model_repository = org.openhab.core.model.core.internal.ModelRepositoryImpl.new(safe_emf)
@@ -410,18 +424,18 @@ module OpenHAB
 
           # link up event bus infrastructure
           iu = org.openhab.core.internal.items.ItemUpdater.new(ir)
-          ief = org.openhab.core.items.events.ItemEventFactory.new
 
           sc = SafeCaller.new
           aum = org.openhab.core.thing.internal.AutoUpdateManager.new(
             { "enabled" => true, "sendOptimisticUpdates" => true }, ctr, ep, iclr, mr, tr
           )
-          spf = org.openhab.core.thing.internal.profiles.SystemProfileFactory.new(ctr, nil, BundleResolver.new)
+          spf = org.openhab.core.thing.internal.profiles.SystemProfileFactory.new(ctr, nil, resolver)
           cm = org.openhab.core.thing.internal.CommunicationManager.new(aum, ctr, spf, iclr, ir, isc, ep, sc, tr)
 
           em.add_event_subscriber(iu)
           em.add_event_subscriber(cm)
-          em.add_event_factory(ief)
+          em.add_event_factory(org.openhab.core.items.events.ItemEventFactory.new)
+          em.add_event_factory(org.openhab.core.thing.events.ThingEventFactory.new)
 
           # set up the rules engine part 2
           k = org.openhab.core.automation.internal.module.factory.CoreModuleHandlerFactory
@@ -464,6 +478,31 @@ module OpenHAB
           pm = org.openhab.core.persistence.internal.PersistenceManagerImpl.new(nil, ir, sc, rs)
           pm.add_persistence_service(ps)
           pm.on_ready_marker_added(nil)
+
+          # set up ThingManager so we can trigger channels
+          localizer = org.openhab.core.thing.i18n.ThingStatusInfoI18nLocalizationService.new
+          tm = org.openhab.core.thing.internal.ThingManagerImpl.new(
+            resolver,
+            cgtr,
+            ctr,
+            cm,
+            nil,
+            nil,
+            ep,
+            iclr,
+            rs,
+            sc,
+            ss,
+            tr,
+            localizer,
+            ttr
+          )
+          thf = RSpec::OpenHAB::Core::Mocks::ThingHandlerFactory.new
+          this_bundle = Bundle.new
+          this_bundle.symbolic_name = "org.openhab.automation.jrubyscripting.rspec"
+          resolver.register(thf.class.java_class, this_bundle)
+          tm.add_thing_handler_factory(thf)
+          tm.on_ready_marker_added(org.openhab.core.service.ReadyMarker.new(nil, this_bundle.symbolic_name))
         end
       end
     end

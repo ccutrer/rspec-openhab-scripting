@@ -3,18 +3,6 @@
 module RSpec
   module OpenHAB
     module Items
-      class ThingHandler
-        include org.openhab.core.thing.binding.ThingHandler
-
-        attr_reader :thing
-
-        def initialize(thing)
-          @thing = thing
-        end
-
-        def handle_command(channel, command); end
-      end
-
       class << self
         def populate_items_from_api(api)
           all_items = api.items
@@ -103,14 +91,7 @@ module RSpec
               end
             end
 
-            thing = builder.build
-            # pretend everything is online so that AutoUpdateManager won't reject updates
-            # to items linked to offline channels
-            thing.status_info = org.openhab.core.thing.binding.builder.ThingStatusInfoBuilder
-                                   .create(org.openhab.core.thing.ThingStatus::ONLINE).build
-            handler = ThingHandler.new(thing)
-            thing.handler = handler
-            $things.add(thing)
+            $things.add(builder.build)
           end
         end
 

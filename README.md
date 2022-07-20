@@ -83,6 +83,7 @@ and then load your items and rules in, then drop you into IRB.
  * Rule triggers besides item related triggers (such as
    thing status, cron, or watchers) are not triggered. You can test them with
    `trigger_rule("rule name"[, event])`.
+ * You can trigger channels directly with `trigger_channel(channel, data)`.
  * Timers aren't triggered automatically. Use the `execute_timers` helper to
    execute any timers that are ready to run. The `timecop` gem is
    automatiocally included, so use `Timecop.travel(5.seconds)` (for example)

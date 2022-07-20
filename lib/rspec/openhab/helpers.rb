@@ -24,6 +24,13 @@ module RSpec
         @rules.fetch(rule_name).execute(nil, { "event" => event })
       end
 
+      def trigger_channel(channel, event)
+        channel = org.openhab.core.thing.ChannelUID.new(channel) if channel.is_a?(String)
+        channel = channel.uid if channel.is_a?(org.openhab.core.thing.Channel)
+        thing = channel.thing
+        thing.handler.callback.channel_triggered(nil, channel, event)
+      end
+
       private
 
       def restore_autoupdate_items
