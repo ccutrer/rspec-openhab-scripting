@@ -88,7 +88,6 @@ require_relative "rspec/openhab/dsl/rules/triggers/watch"
 
 # RSpec additions
 require "rspec/core"
-require "rspec/openhab/items"
 require "rspec/openhab/helpers"
 require "rspec/openhab/hooks"
 require "rspec/openhab/suspend_rules"
@@ -97,26 +96,9 @@ RSpec.configure do |config|
   config.include OpenHAB::Core::EntityLookup
 end
 
-RSpec::OpenHAB::SuspendRules.suspend_rules do
-  RSpec::OpenHAB::Items.populate_things_from_api(api) if api.authenticated?
-  RSpec::OpenHAB::Items.populate_items_from_api(api)
-end
-
 # make bundler/inline _not_ destroy the already existing load path
 module Bundler
   module SharedHelpers
     def clean_load_path; end
-  end
-end
-
-# load rules files
-OPENHAB_AUTOMATION_PATH = "#{org.openhab.core.OpenHAB.config_folder}/automation/jsr223/ruby/personal"
-
-RSpec::OpenHAB::SuspendRules.suspend_rules do
-  Dir["#{OPENHAB_AUTOMATION_PATH}/*.rb"].each do |f|
-    load f
-  rescue Exception => e
-    warn "Failed loading #{f}: #{e.inspect}"
-    warn e.backtrace
   end
 end

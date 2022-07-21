@@ -44,6 +44,9 @@ require "rubygems"
 require "bundler"
 
 Bundler.require(:default, :test)
+
+# if you have any automatic requires setup in jrubyscripting's config,
+# (besides `openhab`), you need to manually require them here
 ```
  * Create some specs! An example of `spec/switches_spec.rb`:
 ```ruby
