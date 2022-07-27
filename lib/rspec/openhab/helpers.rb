@@ -37,7 +37,6 @@ module RSpec
         api = ::OpenHAB::DSL::Imports.api
         all_items = api.items
 
-        gfh = org.openhab.core.internal.items.GroupFunctionHelper.new
         item_factory = org.openhab.core.library.CoreItemFactory.new
 
         all_items.each do |item_json|
@@ -51,7 +50,7 @@ module RSpec
               dto = org.openhab.core.items.dto.GroupFunctionDTO.new
               dto.name = item_json.dig("function", "name")
               dto.params = item_json.dig("function", "params")
-              function = gfh.create_group_function(dto, base_item)
+              function = org.openhab.core.items.dto.ItemDTOMapper.map_function(base_item, dto)
             end
             item = GroupItem.new(name, base_item, function)
           else
