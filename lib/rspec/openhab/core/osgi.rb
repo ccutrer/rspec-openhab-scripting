@@ -13,6 +13,8 @@ module OpenHAB
         end
 
         def service(name)
+          name = name.java_class if name.is_a?(Class)
+          name = name.name if name.is_a?(java.lang.Class)
           @services&.[](name)
         end
 

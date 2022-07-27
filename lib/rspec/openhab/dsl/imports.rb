@@ -452,6 +452,8 @@ module OpenHAB
 
           rs = org.openhab.core.internal.service.ReadyServiceImpl.new
           re = org.openhab.core.automation.internal.RuleEngineImpl.new(mtr, rr, ss, rs)
+          OpenHAB::Core::OSGI.register_service(re)
+
           # overwrite thCallbacks to one that will spy to remove threading
           field = re.class.java_class.declared_field("thCallbacks")
           field.accessible = true
