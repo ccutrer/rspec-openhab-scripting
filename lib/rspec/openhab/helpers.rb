@@ -1,8 +1,49 @@
 # frozen_string_literal: true
 
+module OpenHAB
+  module Transform
+    class << self
+      def add_script(modules, script)
+        full_name = modules.join("/")
+        name = modules.pop
+        (@scripts ||= {})[full_name] = engine_factory.script_engine.compile(script)
+
+        mod = modules.inject(self) { |m, n| m.const_get(n, false) }
+        mod.singleton_class.define_method(name) do |input, **kwargs|
+          Transform.send(:transform, full_name, input, kwargs)
+        end
+      end
+
+      private
+
+      def engine_factory
+        @engine_factory ||= org.jruby.embed.jsr223.JRubyEngineFactory.new
+      end
+
+      def transform(name, input, kwargs)
+        script = @scripts[name]
+        ctx = script.engine.context
+        ctx.set_attribute("input", input.to_s, javax.script.ScriptContext::ENGINE_SCOPE)
+        kwargs.each do |(k, v)|
+          ctx.set_attribute(k.to_s, v.to_s, javax.script.ScriptContext::ENGINE_SCOPE)
+        end
+        script.eval
+      end
+    end
+  end
+end
+
 module RSpec
   module OpenHAB
     module Helpers
+      module BindingHelper
+        def add_kwargs_to_current_binding(binding, kwargs)
+          kwargs.each { |(k, v)| binding.local_variable_set(k, v) }
+        end
+      end
+
+      private_constant :BindingHelper
+
       singleton_class.include(Helpers)
 
       def autoupdate_all_items
@@ -138,7 +179,45 @@ module RSpec
         end
       end
 
+      def load_transforms
+        transform_path = "#{org.openhab.core.OpenHAB.config_folder}/transform"
+        Dir["#{transform_path}/**/*.script"].each do |filename|
+          script = File.read(filename)
+          next unless ruby_file?(script)
+
+          filename.slice!(0..transform_path.length)
+          dir = File.dirname(filename)
+          modules = dir == "." ? [] : moduleize(dir)
+          basename = File.basename(filename)
+          method = basename[0...-7]
+          modules << method
+          ::OpenHAB::Transform.add_script(modules, script)
+        end
+      end
+
       private
+
+      EMACS_MODELINE_REGEXP = /# -\*-(.+)-\*-/.freeze
+
+      def parse_emacs_modeline(line)
+        line[EMACS_MODELINE_REGEXP, 1]
+            &.split(";")
+            &.map(&:strip)
+            &.map { |l| l.split(":", 2).map(&:strip).tap { |a| a[1] ||= nil } }
+            &.to_h
+      end
+
+      def ruby_file?(script)
+        # check the first 1KB for an emacs magic comment
+        script[0..1024].split("\n").any? { |line| parse_emacs_modeline(line)&.dig("mode") == "ruby" }
+      end
+
+      def moduleize(term)
+        term
+          .sub(/^[a-z\d]*/, &:capitalize)
+          .gsub(%r{(?:_|(/))([a-z\d]*)}) { "#{$1}#{$2.capitalize}" }
+          .split("/")
+      end
 
       def restore_autoupdate_items
         return unless instance_variable_defined?(:@autoupdated_items)

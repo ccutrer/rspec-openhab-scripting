@@ -143,6 +143,19 @@ Not configurable:
  * It's assumed that your ruby rules are located at `$OPENHAB_CONF/automation/jsr223/ruby/personal`.
  * It's assumed that your ruby library path is located at `$OPENHAB_CONF/automation/lib/ruby`.
 
+## Transformations
+
+Ruby transformations _must_ have a magic comment `# -*- mode: ruby -*-` in them to be loaded.
+Then they can be accessed as a method on `OpenHAB::Transform` based on the filename:
+
+```
+OpenHAB::Transform.compass("59 °")
+OpenHAB::Transform.compass("30", param: "7")
+OpenHAB::Transform::Ruby.compass("59 °")
+```
+
+They're loaded into a sub-JRuby engine, just like they run in OpenHAB.
+
 ## Troubleshooting
 
 If you're getting errors about class not found for something for OpenHAB

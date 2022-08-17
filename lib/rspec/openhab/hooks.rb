@@ -6,6 +6,7 @@ module RSpec
       config.before(:suite) do
         Helpers.populate_things_from_api if ::OpenHAB::DSL::Imports.api.authenticated?
         Helpers.populate_items_from_api
+        Helpers.load_transforms
         Helpers.suspend_rules do
           Helpers.load_rules
         end
