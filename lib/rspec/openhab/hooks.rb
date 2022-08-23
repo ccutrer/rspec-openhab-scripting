@@ -8,6 +8,7 @@ module RSpec
         Helpers.populate_items_from_api
         Helpers.load_transforms
         Helpers.suspend_rules do
+          Helpers.auto_requires
           Helpers.load_rules
         end
       end

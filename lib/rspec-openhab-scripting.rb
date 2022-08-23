@@ -4,6 +4,10 @@
 # in the meantime, I've "vendored" it, and just forcing it on the load path first
 $LOAD_PATH.unshift(File.expand_path("../vendor/gems/jar-dependencies-1.0.0/lib", __dir__))
 
+# require "rspec-openhab-scripting_jars"
+
+require "rspec/openhab/karaf"
+
 require "rspec/openhab/api"
 api = OpenHAB::API.new("http://#{ENV.fetch("OPENHAB_HOST", "localhost")}:#{ENV.fetch("OPENHAB_HTTP_PORT", "8080")}/",
                        ENV.fetch("OPENHAB_TOKEN", nil))
@@ -16,14 +20,9 @@ module OpenHAB
   end
 end
 
-oh_home = ENV.fetch("OPENHAB_HOME", "/usr/share/openhab")
-oh_runtime = ENV.fetch("OPENHAB_RUNTIME", "#{oh_home}/runtime")
-
 ENV["JARS_ADDITIONAL_MAVEN_REPOS"] = File.join(oh_runtime, "system")
 
 openhab_version = OpenHAB::Core.openhab_version = api.version
-
-require "rspec-openhab-scripting_jars"
 
 maven_require do
   # upstream dependencies that I don't know how to infer from the openhab bundles alone

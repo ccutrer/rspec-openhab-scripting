@@ -74,6 +74,14 @@ module RSpec
         thing.handler.callback.channel_triggered(nil, channel, event)
       end
 
+      def autorequires
+        ca = ::OpenHAB::Core::OSGI.service(org.osgi.service.cm.ConfigurationAdmin)
+        requires = ca.get_configuration("org.openhab.automation.jrubyscripting")&.properties&.get("require") || ""
+        requires.split(",").each do |f|
+          require f.trim
+        end
+      end
+
       def populate_items_from_api
         api = ::OpenHAB::DSL::Imports.api
         all_items = api.items
