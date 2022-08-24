@@ -103,19 +103,37 @@ module RSpec
         # shut down externally)
         main = org.apache.karaf.main.Main.new([])
         main.launch
-        at_exit { main.destroy }
+        at_exit do
+          main.destroy
+          # OSGi/OpenHAB leave a ton of threads around. Kill ourselves ASAP
+          code = if $!.nil? || ($!.is_a?(SystemExit) && $!.success?)
+                   0
+                 elsif $!.is_a?(SystemExit)
+                   $!.status
+                 else
+                   puts $!.inspect
+                   1
+                 end
+          exit!(code)
+        end
         @framework = main.framework
         @bundle_context = main.framework.bundle_context
         # hook up the OSGI class loader manually
         ::JRuby.runtime.instance_config.add_loader(JRuby::OSGiBundleClassLoader.new(main.framework))
         # automatically shut it down when Ruby wants to be done
         link_osgi
+
         set_up_service_listener
         set_up_bundle_listener
+        disable_default_script_file_watcher
         silence_pax
         wait_for_start
         set_jruby_script_presets
         main
+      end
+
+      def disable_default_script_file_watcher
+        wait_for_service("org.apache.karaf.log.core.LogService", &:deactivate)
       end
 
       def silence_pax
@@ -124,12 +142,67 @@ module RSpec
         end
       end
 
+      BLOCKED_COMPONENTS = {
+        # we want the bundle to access directly, but we don't want it to actually start up
+        "org.openhab.automation.jrubyscripting" =>
+        "org.openhab.automation.jrubyscripting.internal.JRubyScriptEngineFactory",
+        "org.openhab.core" => %w[
+          org.openhab.core.addon.AddonEventFactory
+          org.openhab.core.binding.BindingInfoRegistry
+          org.openhab.core.binding.i18n.BindingI18nLocalizationService
+          org.openhab.core.internal.auth.ManagedUserProvider
+          org.openhab.core.internal.auth.UserRegistryImpl
+          org.openhab.core.internal.i18n.I18nProviderImpl
+        ].freeze,
+        "org.openhab.core.audio" => %w[
+          org.openhab.core.audio.internal.AudioManagerImpl
+          org.openhab.core.audio.internal.javasound.JavaSoundAudioSink
+          org.openhab.core.audio.internal.javasound.JavaSoundAudioSource
+          org.openhab.core.audio.internal.webaudio.WebAudioAudioSink
+          org.openhab.core.audio.internal.webaudio.WebAudioEventFactory
+        ].freeze,
+        "org.openhab.core.automation.module.script.rulesupport" => %w[
+          org.openhab.core.automation.module.script.rulesupport.internal.loader.DefaultScriptFileWatcher
+        ].freeze,
+        "org.openhab.core.binding.xml" => "org.openhab.core.binding.xml.internal.BindingXmlConfigDescriptionProvider",
+        "org.openhab.core.config.core" => nil,
+        "org.openhab.core.config.discovery" => nil,
+        "org.openhab.core.config.dispatch" => nil,
+        "org.openhab.core.io.monitor" => nil,
+        "org.openhab.core.io.net" => nil,
+        "org.openhab.core.model.rule.runtime" => nil,
+        "org.openhab.core.model.rule" => nil,
+        "org.openhab.core.model.script" => %w[
+          org.openhab.core.model.script.internal.RuleHumanLanguageInterpreter
+          org.openhab.core.model.script.internal.engine.action.VoiceActionService
+          org.openhab.core.model.script.jvmmodel.ScriptItemRefresher
+        ].freeze,
+        "org.openhab.core.model.sitemap.runtime" => nil,
+        "org.openhab.core.voice" => nil
+      }.freeze
+      private_constant :BLOCKED_COMPONENTS
+
       def set_up_bundle_listener
+        wait_for_service("org.osgi.service.component.runtime.ServiceComponentRuntime") { |scr| @scr = scr }
         @bundle_context.add_bundle_listener do |event|
-          next unless event.type == org.osgi.framework.BundleEvent::STARTING
-          next unless event.bundle.symbolic_name.start_with?("org.openhab.core")
+          next unless event.type == org.osgi.framework.BundleEvent::STARTED
+
+          bundle_name = event.bundle.symbolic_name
+          next unless bundle_name.start_with?("org.openhab.core")
 
           ::JRuby.runtime.instance_config.add_loader(event.bundle)
+
+          next unless BLOCKED_COMPONENTS.key?(bundle_name)
+
+          components = BLOCKED_COMPONENTS[bundle_name]
+          dtos = if components.nil?
+                   @scr.get_component_description_dt_os(event.bundle)
+                 else
+                   Array(components).map { |component| @scr.get_component_description_dto(event.bundle, component) }
+                 end
+          dtos.each do |dto|
+            @scr.disable_component(dto)
+          end
         end
         @bundle_context.bundles.each do |bundle|
           next unless bundle.symbolic_name.start_with?("org.openhab.core")
@@ -146,7 +219,7 @@ module RSpec
           ref = event.service_reference
           service = nil
 
-          ref.get_property("objectClass").each do |klass|
+          ref.get_property(org.osgi.framework.Constants::OBJECTCLASS).each do |klass|
             next unless @awaiting_services.key?(klass)
 
             service ||= @bundle_context.get_service(ref)
