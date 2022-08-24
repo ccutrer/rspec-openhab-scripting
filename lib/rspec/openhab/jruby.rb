@@ -26,7 +26,7 @@ module RSpec
         end
 
         def get_class_loader # rubocop:disable Naming/AccessorMethodName
-          org.jruby.embed.osgi.internal.BundleWiringOSGiClassLoaderAdapter.new.get_class_loader(@bundle)
+          @bundle&.adapt(org.osgi.framework.wiring.BundleWiring.java_class)&.class_loader
         end
       end
 

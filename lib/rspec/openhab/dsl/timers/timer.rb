@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "timecop"
+
 module OpenHAB
   module DSL
     class Timer

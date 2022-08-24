@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "openssl"
 require "shellwords"
 
 require_relative "jruby"
@@ -8,6 +9,17 @@ require_relative "shell"
 module RSpec
   module OpenHAB
     class Karaf
+      class ScriptExtensionManagerWrapper
+        def initialize(manager)
+          @manager = manager
+        end
+
+        def get(type)
+          @manager.get(type, "jruby")
+        end
+      end
+      private_constant :ScriptExtensionManagerWrapper
+
       attr_reader :path
 
       def initialize(path)
@@ -99,6 +111,7 @@ module RSpec
         # automatically shut it down when Ruby wants to be done
         link_osgi
         set_up_service_listener
+        set_up_bundle_listener
         silence_pax
         wait_for_start
         set_jruby_script_presets
@@ -108,6 +121,20 @@ module RSpec
       def silence_pax
         wait_for_service("org.apache.karaf.log.core.LogService") do |log_service|
           log_service.set_level("org.ops4j.pax.web.service.internal.HttpServiceStarted", "FATAL")
+        end
+      end
+
+      def set_up_bundle_listener
+        @bundle_context.add_bundle_listener do |event|
+          next unless event.type == org.osgi.framework.BundleEvent::STARTING
+          next unless event.bundle.symbolic_name.start_with?("org.openhab.core")
+
+          ::JRuby.runtime.instance_config.add_loader(event.bundle)
+        end
+        @bundle_context.bundles.each do |bundle|
+          next unless bundle.symbolic_name.start_with?("org.openhab.core")
+
+          ::JRuby.runtime.instance_config.add_loader(bundle)
         end
       end
 
@@ -154,7 +181,9 @@ module RSpec
       # import global variables and constants that openhab-scripting gem expects,
       # since we're going to be running it in this same VM
       def set_jruby_script_presets
+        # since we're not created by the ScriptEngineManager, this never gets set; manually set it
         sem = ::OpenHAB::Core::OSGI.service("org.openhab.core.automation.module.script.internal.ScriptExtensionManager")
+        $se = $scriptExtension = ScriptExtensionManagerWrapper.new(sem)
         scope_values = sem.find_default_presets("rspec")
         scope_values = scope_values.entry_set
         jrubyscripting = ::OpenHAB::Core::OSGI.services(

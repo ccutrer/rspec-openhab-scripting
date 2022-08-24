@@ -1,27 +1,16 @@
 # frozen_string_literal: true
 
-def ch
-  Java::Ch
-end
-
-ch.qos.logback.classic.Level.class_eval do
-  alias_method :inspect, :to_s
-end
-
 module OpenHAB
   module Core
     class Logger
-      levels = %i[OFF ERROR WARN INFO DEBUG TRACE ALL]
-      levels.each { |level| const_set(level, ch.qos.logback.classic.Level.const_get(level)) }
-
-      extend Forwardable
-      delegate %i[level] => :@sl4fj_logger
+      class << self
+        def log_service
+          @log_service = OSGI.service("org.apache.karaf.log.core.LogService")
+        end
+      end
 
       def level=(level)
-        if level.is_a?(String) || level.is_a?(Symbol)
-          level = ch.qos.logback.classic.Level.const_get(level.to_s.upcase, false)
-        end
-        @sl4fj_logger.level = level
+        self.class.log_service.set_level(@sl4fj_logger.name, level.to_s)
       end
     end
   end
@@ -46,6 +35,3 @@ module OpenHAB
     end
   end
 end
-
-OpenHAB::Log.root.level = :info
-OpenHAB::Log.events.level = :warn

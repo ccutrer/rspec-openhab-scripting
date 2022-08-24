@@ -511,4 +511,4 @@ module OpenHAB
   end
 end
 
-OpenHAB::DSL.singleton_class.prepend(OpenHAB::DSL::Imports)
+# OpenHAB::DSL.singleton_class.prepend(OpenHAB::DSL::Imports)

@@ -82,6 +82,39 @@ module RSpec
         end
       end
 
+      def launch_karaf
+        main = RSpec::OpenHAB::Karaf.new("#{Dir.pwd}/.karaf").launch
+
+        require "openhab"
+        require "rspec/openhab/core/logger"
+
+        # during testing, we don't want "regular" output from rules
+        ::OpenHAB::Log.logger("org.openhab.automation.jruby.runtime").level = :warn
+        ::OpenHAB::Log.logger("org.openhab.automation.jruby.logger").level = :warn
+        require "rspec/openhab/core/mocks/channel_type_provider"
+        require "rspec/openhab/core/mocks/item_channel_link_provider"
+        require "rspec/openhab/core/mocks/persistence_service"
+        require "rspec/openhab/core/mocks/thing_handler"
+        require "rspec/openhab/core/mocks/thing_type_provider"
+
+        # override several openhab-scripting methods
+        require_relative "actions"
+        require_relative "core/item_proxy"
+        require_relative "dsl/timers/timer"
+        # TODO: still needed?
+        require_relative "dsl/rules/triggers/watch"
+
+        # RSpec additions
+        require "rspec/openhab/suspend_rules"
+
+        if ::RSpec.respond_to?(:config)
+          ::RSpec.configure do |config|
+            config.include OpenHAB::Core::EntityLookup
+          end
+        end
+        main
+      end
+
       def populate_items_from_api
         api = ::OpenHAB::DSL::Imports.api
         all_items = api.items
@@ -354,8 +387,10 @@ module RSpec
       end
     end
 
-    RSpec.configure do |config|
-      config.include Helpers
+    if RSpec.respond_to?(:configure)
+      RSpec.configure do |config|
+        config.include Helpers
+      end
     end
   end
 end
