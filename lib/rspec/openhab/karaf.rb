@@ -84,6 +84,8 @@ module RSpec
         java.lang.System.set_property("org.osgi.service.http.port.secure", "-1")
         java.lang.System.set_property("log4j2.logger.org.ops4j.pax.web.service.internal.HttpServiceStarted.level",
                                       "off")
+        # ensure we're not logging to stdout
+        java.util.logging.LogManager.log_manager.reset
 
         # launch it! (don't use Main.main; it will wait for it to be
         # shut down externally)

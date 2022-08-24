@@ -8,7 +8,7 @@ rescue LoadError
 end
 
 if defined? Jars
-  #require_jar 'ch.qos.logback', 'logback-classic', '1.2.9'
+  require_jar 'ch.qos.logback', 'logback-classic', '1.2.9'
   require_jar 'org.slf4j', 'slf4j-api', '1.7.32'
-  #require_jar 'ch.qos.logback', 'logback-core', '1.2.9'
+  require_jar 'ch.qos.logback', 'logback-core', '1.2.9'
 end
