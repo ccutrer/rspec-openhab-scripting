@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 
-require "openssl"
+require "fileutils"
+require "jruby"
 require "shellwords"
+require "time"
 
 require_relative "jruby"
 require_relative "shell"
@@ -34,10 +36,6 @@ module RSpec
         redirect_instances
         create_instance
         start_instance
-      rescue Exception => e
-        puts e.inspect
-        puts e.backtrace
-        raise
       end
 
       private
@@ -69,7 +67,9 @@ module RSpec
 
         service.clone_instance(root_instance.name, "rspec", settings, false)
         cleanup_clone
+        prune_startlevels
         minimize_installed_features
+        # TODO: remove things from org.openhab.startlevel.config
       end
 
       def start_instance
@@ -88,23 +88,18 @@ module RSpec
         java.lang.System.set_property("openhab.logdir", "#{path}/log")
         # we don't need a shutdown socket
         java.lang.System.set_property("karaf.shutdown.port", "-1")
-        # disable HTTP
-        java.lang.System.set_property("org.osgi.service.http.enabled", "false")
-        java.lang.System.set_property("org.osgi.service.http.secure.enabled", "false")
-        # for some reason it still tries to launch a secure server; prevent
-        # it from succeeding (and mute the log entry)
-        java.lang.System.set_property("org.osgi.service.http.port.secure", "-1")
-        java.lang.System.set_property("log4j2.logger.org.ops4j.pax.web.service.internal.HttpServiceStarted.level",
-                                      "off")
         # ensure we're not logging to stdout
         java.util.logging.LogManager.log_manager.reset
 
+        # see https://github.com/jruby/jruby/issues/7338
+        @mutex = Mutex.new
         # launch it! (don't use Main.main; it will wait for it to be
         # shut down externally)
-        main = org.apache.karaf.main.Main.new([])
-        main.launch
+        @all_bundles_continue = nil
+        @main = org.apache.karaf.main.Main.new([])
+        launch_karaf
         at_exit do
-          main.destroy
+          @main.destroy
           # OSGi/OpenHAB leave a ton of threads around. Kill ourselves ASAP
           code = if $!.nil? || ($!.is_a?(SystemExit) && $!.success?)
                    0
@@ -116,59 +111,147 @@ module RSpec
                  end
           exit!(code)
         end
-        @framework = main.framework
-        @bundle_context = main.framework.bundle_context
-        # hook up the OSGI class loader manually
-        ::JRuby.runtime.instance_config.add_loader(JRuby::OSGiBundleClassLoader.new(main.framework))
-        # automatically shut it down when Ruby wants to be done
-        link_osgi
 
-        set_up_service_listener
         set_up_bundle_listener
         disable_default_script_file_watcher
         silence_pax
         wait_for_start
         set_jruby_script_presets
-        main
+        @main
       end
 
-      def disable_default_script_file_watcher
-        wait_for_service("org.apache.karaf.log.core.LogService", &:deactivate)
-      end
+      def launch_karaf
+        # we need to access internals, since we're reproducing much of Main.launch
+        klass = org.apache.karaf.main.Main
+        klass.field_accessor :classLoader, :activatorManager
+        klass.field_writer :framework
+        klass.field_reader :LOG
+        org.apache.karaf.main.ConfigProperties.field_reader :props, :defaultBundleStartlevel, :karafEtc,
+                                                            :defaultStartLevel
+        klass.class_eval do
+          def send_private(method_name, *args)
+            method_name = method_name.to_s
+            method = self.class.java_class.declared_methods.find { |m| m.name == method_name }
+            method.accessible = true
+            method.invoke(self, *args)
+          end
 
-      def silence_pax
-        wait_for_service("org.apache.karaf.log.core.LogService") do |log_service|
-          log_service.set_level("org.ops4j.pax.web.service.internal.HttpServiceStarted", "FATAL")
+          def launch_simple
+            self.config = org.apache.karaf.main.ConfigProperties.new
+            config.perform_init
+            log4j_config_path = "#{java.lang.System.get_property("karaf.etc")}/org.ops4j.pax.logging.cfg"
+            org.apache.karaf.main.util.BootstrapLogManager.set_properties(config.props, log4j_config_path)
+            org.apache.karaf.main.util.BootstrapLogManager.configure_logger(self.class.LOG)
+
+            bundle_dirs = send_private(:getBundleRepos)
+            resolver = org.apache.karaf.main.util.SimpleMavenResolver.new(bundle_dirs)
+            self.classLoader = send_private(:createClassLoader, resolver)
+            factory = send_private(:loadFrameworkFactory, classLoader)
+            self.framework = factory.new_framework(config.props)
+
+            send_private(:setLogger)
+
+            framework.init
+            framework.start
+
+            sl = framework.adapt(org.osgi.framework.startlevel.FrameworkStartLevel.java_class)
+            sl.initial_bundle_start_level = config.defaultBundleStartlevel
+
+            if framework.bundle_context.bundles.length == 1
+              self.class.LOG.info("Installing and starting initial bundles")
+              startup_props_file = java.io.File.new(config.karafEtc, self.class::STARTUP_PROPERTIES_FILE_NAME)
+              bundles = read_bundles_from_startup_properties(startup_props_file)
+              send_private(:installAndStartBundles, resolver, framework.bundle_context, bundles)
+              self.class.LOG.info("All initial bundles installed and set to start")
+            end
+
+            server_info = org.apache.karaf.main.ServerInfoImpl.new(args, config)
+            framework.bundle_context.register_service(org.apache.karaf.info.ServerInfo.java_class, server_info, nil)
+
+            self.activatorManager = org.apache.karaf.main.KarafActivatorManager.new(classLoader, framework)
+
+            # let the caller register services now that the framework is up,
+            # but nothing is running yet
+            yield framework.bundle_context
+
+            set_start_level(config.defaultStartLevel)
+          end
+        end
+
+        @main.launch_simple do
+          # hook up the OSGI class loader manually
+          @mutex.synchronize do
+            ::JRuby.runtime.instance_config.add_loader(JRuby::OSGiBundleClassLoader.new(@main.framework))
+          end
+
+          @framework = @main.framework
+          @bundle_context = @main.framework.bundle_context
+          link_osgi
+
+          # prevent entirely blocked bundles from starting at all
+          @main.framework.bundle_context.bundles.each do |b|
+            sl = b.adapt(org.osgi.framework.startlevel.BundleStartLevel.java_class)
+            sl.start_level = @main.config.defaultStartLevel + 1 if blocked_bundle?(b)
+          end
+
+          set_up_service_listener
+          # replace event infrastructure with synchronous versions
+          wait_for_service("org.osgi.service.event.EventAdmin") do |service|
+            bundle = org.osgi.framework.FrameworkUtil.get_bundle(service.class)
+            @mutex.synchronize do
+              ::JRuby.runtime.instance_config.add_loader(JRuby::OSGiBundleClassLoader.new(bundle))
+              require "rspec/openhab/core/mocks/event_admin"
+              ea = OpenHAB::Core::Mocks::EventAdmin.instance
+              # we need to register it as if from the regular eventadmin bundle so other bundles
+              # can properly find it
+              bundle.bundle_context.register_service(
+                org.osgi.service.event.EventAdmin.java_class,
+                ea,
+                java.util.Hashtable.new(org.osgi.framework.Constants::SERVICE_RANKING => 1.to_java(:int))
+              )
+            end
+          end
+          wait_for_service("org.openhab.core.automation.RuleManager") do |re|
+            require "rspec/openhab/core/mocks/synchronous_executor"
+            # overwrite thCallbacks to one that will spy to remove threading
+            field = re.class.java_class.declared_field :thCallbacks
+            field.accessible = true
+            field.set(re, Core::Mocks::CallbacksMap.new)
+            re.class.field_accessor :executor
+            re.executor = Core::Mocks::SynchronousExecutor.instance
+          end
         end
       end
 
+      def disable_default_script_file_watcher
+        #        wait_for_service("org.apache.karaf.log.core.LogService", &:deactivate)
+      end
+
+      def silence_pax
+        #        wait_for_service("org.apache.karaf.log.core.LogService") do |log_service|
+        #          log_service.set_level("org.ops4j.pax.web.service.internal.HttpServiceStarted", "FATAL")
+        #        end
+      end
+
       BLOCKED_COMPONENTS = {
-        # we want the bundle to access directly, but we don't want it to actually start up
-        "org.openhab.automation.jrubyscripting" =>
-        "org.openhab.automation.jrubyscripting.internal.JRubyScriptEngineFactory",
         "org.openhab.core" => %w[
           org.openhab.core.addon.AddonEventFactory
           org.openhab.core.binding.BindingInfoRegistry
           org.openhab.core.binding.i18n.BindingI18nLocalizationService
           org.openhab.core.internal.auth.ManagedUserProvider
           org.openhab.core.internal.auth.UserRegistryImpl
-          org.openhab.core.internal.i18n.I18nProviderImpl
-        ].freeze,
-        "org.openhab.core.audio" => %w[
-          org.openhab.core.audio.internal.AudioManagerImpl
-          org.openhab.core.audio.internal.javasound.JavaSoundAudioSink
-          org.openhab.core.audio.internal.javasound.JavaSoundAudioSource
-          org.openhab.core.audio.internal.webaudio.WebAudioAudioSink
-          org.openhab.core.audio.internal.webaudio.WebAudioEventFactory
         ].freeze,
         "org.openhab.core.automation.module.script.rulesupport" => %w[
           org.openhab.core.automation.module.script.rulesupport.internal.loader.DefaultScriptFileWatcher
         ].freeze,
         "org.openhab.core.binding.xml" => "org.openhab.core.binding.xml.internal.BindingXmlConfigDescriptionProvider",
-        "org.openhab.core.config.core" => nil,
+        "org.openhab.core.config.core" => %w[
+          org.openhab.core.config.core.internal.i18n.I18nConfigOptionsProvider
+          org.openhab.core.config.core.status.ConfigStatusService
+          org.openhab.core.config.core.status.events.ConfigStatusEventFactory
+        ],
         "org.openhab.core.config.discovery" => nil,
         "org.openhab.core.config.dispatch" => nil,
-        "org.openhab.core.io.monitor" => nil,
         "org.openhab.core.io.net" => nil,
         "org.openhab.core.model.rule.runtime" => nil,
         "org.openhab.core.model.rule" => nil,
@@ -178,27 +261,60 @@ module RSpec
           org.openhab.core.model.script.jvmmodel.ScriptItemRefresher
         ].freeze,
         "org.openhab.core.model.sitemap.runtime" => nil,
-        "org.openhab.core.voice" => nil
+        "org.openhab.core.voice" => nil,
+        # the following bundles are blocked completely from starting
+        "org.apache.karaf.http.core" => nil,
+        # "org.apache.karaf.services.eventadmin" => nil,
+        "org.apache.karaf.shell.commands" => nil,
+        "org.apache.karaf.shell.core" => nil,
+        "org.apache.karaf.shell.ssh" => nil,
+        "org.openhab.core.audio" => nil,
+        "org.openhab.core.automation.module.media" => nil,
+        "org.openhab.core.io.console" => nil,
+        "org.openhab.core.io.http" => nil,
+        "org.openhab.core.io.rest" => nil,
+        "org.openhab.core.io.rest.core" => nil,
+        "org.openhab.core.io.rest.sse" => nil
       }.freeze
       private_constant :BLOCKED_COMPONENTS
 
       def set_up_bundle_listener
         wait_for_service("org.osgi.service.component.runtime.ServiceComponentRuntime") { |scr| @scr = scr }
         @bundle_context.add_bundle_listener do |event|
+          bundle = event.bundle
+          bundle_name = bundle.symbolic_name
+          if event.type == org.osgi.framework.BundleEvent::INSTALLED
+            sl = bundle.adapt(org.osgi.framework.startlevel.BundleStartLevel.java_class)
+            sl.start_level = @main.config.defaultStartLevel + 1 if blocked_bundle?(bundle)
+          end
           next unless event.type == org.osgi.framework.BundleEvent::STARTED
 
-          bundle_name = event.bundle.symbolic_name
-          next unless bundle_name.start_with?("org.openhab.core")
+          if bundle_name.start_with?("org.openhab.core")
+            @mutex.synchronize do
+              ::JRuby.runtime.instance_config.add_loader(bundle)
+            end
+          end
 
-          ::JRuby.runtime.instance_config.add_loader(event.bundle)
+          if @all_bundles_continue && all_bundles_started?
+            @all_bundles_continue.call
+            @all_bundles_continue = nil
+          end
 
+          if bundle_name == "org.openhab.core"
+            require "rspec/openhab/core/mocks/bundle_resolver"
+            bundle.bundle_context.register_service(
+              org.openhab.core.util.BundleResolver.java_class,
+              Core::Mocks::BundleResolver.instance,
+              java.util.Hashtable.new(org.osgi.framework.Constants::SERVICE_RANKING => 1.to_java(:int))
+            )
+          end
           next unless BLOCKED_COMPONENTS.key?(bundle_name)
 
           components = BLOCKED_COMPONENTS[bundle_name]
           dtos = if components.nil?
-                   @scr.get_component_description_dt_os(event.bundle)
+                   @scr.get_component_description_dt_os(bundle)
                  else
-                   Array(components).map { |component| @scr.get_component_description_dto(event.bundle, component) }
+                   Array(components).map { |component| @scr.get_component_description_dto(bundle, component) }
                  end
           dtos.each do |dto|
             @scr.disable_component(dto)
@@ -207,7 +323,9 @@ module RSpec
         @bundle_context.bundles.each do |bundle|
           next unless bundle.symbolic_name.start_with?("org.openhab.core")
 
-          ::JRuby.runtime.instance_config.add_loader(bundle)
+          @mutex.synchronize do
+            ::JRuby.runtime.instance_config.add_loader(bundle)
+          end
         end
       end
 
@@ -229,20 +347,53 @@ module RSpec
       end
 
       def wait_for_service(service_name, &block)
+        if (service = ::OpenHAB::Core::OSGI.service(service_name))
+          return yield service
+        end
+
         @awaiting_services[service_name] = block
       end
 
       def wait_for_start
+        wait do |continue|
+          @all_bundles_continue = continue
+          next continue.call if all_bundles_started?
+        end
+      end
+
+      def all_bundles_started?
+        has_core = false
+        result = @bundle_context.bundles.all? do |b|
+          has_core = true if b.symbolic_name == "org.openhab.core"
+          b.state == org.osgi.framework.Bundle::ACTIVE ||
+            blocked_bundle?(b)
+        end
+
+        result && has_core
+      end
+
+      def blocked_bundle?(bundle)
+        BLOCKED_COMPONENTS.fetch(bundle.symbolic_name, false).nil? ||
+          bundle.symbolic_name.start_with?("org.eclipse.jetty") ||
+          bundle.symbolic_name.start_with?("org.ops4j.pax.web") ||
+          bundle.fragment?
+      end
+
+      def wait
         mutex = Mutex.new
         cond = ConditionVariable.new
+        skip_wait = false
 
-        @bundle_context.add_framework_listener do |event|
-          next unless event.type == org.osgi.framework.FrameworkEvent::STARTLEVEL_CHANGED
+        continue = lambda do
+          # if continue was called synchronously, we can just return
+          next skip_wait = true if mutex.owned?
 
           mutex.synchronize { cond.signal }
         end
-
-        mutex.synchronize { cond.wait(mutex) }
+        mutex.synchronize do
+          yield continue
+          cond.wait(mutex) unless skip_wait
+        end
       end
 
       # require this right away, so that we can access OSGI services easily
@@ -254,31 +405,32 @@ module RSpec
       # import global variables and constants that openhab-scripting gem expects,
       # since we're going to be running it in this same VM
       def set_jruby_script_presets
-        # since we're not created by the ScriptEngineManager, this never gets set; manually set it
-        sem = ::OpenHAB::Core::OSGI.service("org.openhab.core.automation.module.script.internal.ScriptExtensionManager")
-        $se = $scriptExtension = ScriptExtensionManagerWrapper.new(sem)
-        scope_values = sem.find_default_presets("rspec")
-        scope_values = scope_values.entry_set
-        jrubyscripting = ::OpenHAB::Core::OSGI.services(
-          "org.openhab.core.automation.module.script.ScriptEngineFactory",
-          filter: "(service.pid=org.openhab.automation.jrubyscripting)"
-        ).first
+        wait_for_service("org.openhab.core.automation.module.script.internal.ScriptExtensionManager") do |sem|
+          # since we're not created by the ScriptEngineManager, this never gets set; manually set it
+          $se = $scriptExtension = ScriptExtensionManagerWrapper.new(sem)
+          scope_values = sem.find_default_presets("rspec")
+          scope_values = scope_values.entry_set
+          jrubyscripting = ::OpenHAB::Core::OSGI.services(
+            "org.openhab.core.automation.module.script.ScriptEngineFactory",
+            filter: "(service.pid=org.openhab.automation.jrubyscripting)"
+          ).first
 
-        %w[mapInstancePresets mapGlobalPresets].each do |method_name|
-          method = jrubyscripting.class.java_class.get_declared_method(method_name, java.util.Map::Entry.java_class)
+          %w[mapInstancePresets mapGlobalPresets].each do |method_name|
+            method = jrubyscripting.class.java_class.get_declared_method(method_name, java.util.Map::Entry.java_class)
 
-          method.accessible = true
-          scope_values = scope_values.map { |e| method.invoke(nil, e) }
-        end
+            method.accessible = true
+            scope_values = scope_values.map { |e| method.invoke(nil, e) }
+          end
 
-        scope_values.each do |entry|
-          key = entry.key
-          value = entry.value
-          # convert Java classes to Ruby classes
-          value = value.ruby_class if value.is_a?(java.lang.Class) # rubocop:disable Lint/UselessAssignment
-          # constants need to go into the global namespace
-          key = "::#{key}" if ("A".."Z").cover?(key[0])
-          eval("#{key} = value unless defined?(#{key})", nil, __FILE__, __LINE__) # rubocop:disable Security/Eval
+          scope_values.each do |entry|
+            key = entry.key
+            value = entry.value
+            # convert Java classes to Ruby classes
+            value = value.ruby_class if value.is_a?(java.lang.Class) # rubocop:disable Lint/UselessAssignment
+            # constants need to go into the global namespace
+            key = "::#{key}" if ("A".."Z").cover?(key[0])
+            eval("#{key} = value unless defined?(#{key})", nil, __FILE__, __LINE__) # rubocop:disable Security/Eval
+          end
         end
       end
 
@@ -358,6 +510,12 @@ module RSpec
                          "#{path}/jsondb/org.openhab.jsonaddonservice.json",
                          "#{path}/config/org/openhab/jsonaddonservice.config",
                          "#{path}/config/org/openhab/addons.config"])
+      end
+
+      def prune_startlevels
+        startlevels = File.read("#{path}/config/org/openhab/startlevel.config")
+        startlevels.sub!(",rules:refresh,rules:dslprovider", "")
+        File.write("#{path}/config/org/openhab/startlevel.config", startlevels)
       end
 
       def minimize_installed_features

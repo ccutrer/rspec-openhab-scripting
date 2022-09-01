@@ -3,7 +3,7 @@
 module RSpec
   module OpenHAB
     module JRuby
-      # Basically org.jruby.embed.osgi.OSGiIsolatedScriptingContainter$BundleGetResources,
+      # Basically org.jruby.embed.osgi.OSGiIsolatedScriptingContainer$BundleGetResources,
       # but implemented in Ruby so that it doesn't have a hard dependency on
       # org.osgi.bundle.Bundle -- which we may need to load!
       class OSGiBundleClassLoader

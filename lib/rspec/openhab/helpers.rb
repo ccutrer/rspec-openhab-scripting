@@ -75,15 +75,16 @@ module RSpec
       end
 
       def autorequires
-        ca = ::OpenHAB::Core::OSGI.service(org.osgi.service.cm.ConfigurationAdmin)
+        ca = ::OpenHAB::Core::OSGI.service("org.osgi.service.cm.ConfigurationAdmin")
         requires = ca.get_configuration("org.openhab.automation.jrubyscripting")&.properties&.get("require") || ""
         requires.split(",").each do |f|
-          require f.trim
+          require f.strip
         end
       end
 
       def launch_karaf
-        main = RSpec::OpenHAB::Karaf.new("#{Dir.pwd}/.karaf").launch
+        karaf = RSpec::OpenHAB::Karaf.new("#{Dir.pwd}/.karaf")
+        main = karaf.launch
 
         require "openhab"
         require "rspec/openhab/core/logger"
@@ -103,6 +104,21 @@ module RSpec
         require_relative "dsl/timers/timer"
         # TODO: still needed?
         require_relative "dsl/rules/triggers/watch"
+
+        thf = Core::Mocks::ThingHandlerFactory.instance
+        Core::Mocks::BundleResolver.instance.register_class(thf.class, main.framework)
+        tm = ::OpenHAB::Core::OSGI.service("org.openhab.core.thing.ThingManager")
+        tm.add_thing_handler_factory(thf)
+
+        # wait for the rule engine
+        rs = ::OpenHAB::Core::OSGI.service("org.openhab.core.service.ReadyService")
+        filter = org.openhab.core.service.ReadyMarkerFilter.new
+                    .with_type(org.openhab.core.service.StartLevelService::STARTLEVEL_MARKER_TYPE)
+                    .with_identifier(org.openhab.core.service.StartLevelService::STARTLEVEL_RULEENGINE.to_s)
+
+        karaf.send(:wait) do |continue|
+          rs.register_tracker(org.openhab.core.service.ReadyService::ReadyTracker.impl { continue.call }, filter)
+        end
 
         # RSpec additions
         require "rspec/openhab/suspend_rules"

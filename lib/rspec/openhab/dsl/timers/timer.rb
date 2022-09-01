@@ -37,7 +37,7 @@ module OpenHAB
 
       def reschedule(duration = nil)
         @duration = duration || @duration
-        @execution_time = ZonedDateTime.now.plus(@duration)
+        @execution_time = ::OpenHAB::DSL.to_zdt(@duration)
         @executed = @cancelled = false
 
         Timers.timer_manager.add(self)
@@ -74,6 +74,7 @@ module OpenHAB
       def active?
         !terminated?
       end
+      alias_method :is_active, :active?
     end
 
     module Support

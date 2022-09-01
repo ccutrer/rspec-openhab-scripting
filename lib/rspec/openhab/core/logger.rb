@@ -9,8 +9,16 @@ module OpenHAB
         end
       end
 
+      def name
+        @sl4fj_logger.name
+      end
+
+      def level
+        self.class.log_service.get_level(name)[name]&.downcase&.to_sym
+      end
+
       def level=(level)
-        self.class.log_service.set_level(@sl4fj_logger.name, level.to_s)
+        self.class.log_service.set_level(name, level.to_s)
       end
     end
   end
@@ -26,10 +34,8 @@ module OpenHAB
       end
 
       def logger(object)
-        logger_name = case object
-                      when String then object
-                      else logger_name(object)
-                      end
+        logger_name = object if object.is_a?(String)
+        logger_name ||= logger_name(object)
         @loggers[logger_name] ||= Core::Logger.new(logger_name)
       end
     end

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "singleton"
+
 # rubocop:disable Naming have to follow java interface names
 module RSpec
   module OpenHAB
@@ -30,9 +32,16 @@ module RSpec
           end
 
           def child_handler_initialized(child_handler, child_thing); end
+
+          def channel_linked(_channel_uid); end
+          def channel_unlinked(_channel_uid); end
+
+          def dispose; end
         end
 
         class ThingHandlerFactory < org.openhab.core.thing.binding.BaseThingHandlerFactory
+          include Singleton
+
           def supportsThingType(_type)
             true
           end

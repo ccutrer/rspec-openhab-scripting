@@ -6,7 +6,10 @@ module RSpec
       RSpec.configure do |config|
         config.before(:suite) do
           Helpers.launch_karaf
+          config.include ::OpenHAB::Core::EntityLookup
+          Helpers.autorequires
           Helpers.load_transforms
+          Helpers.load_rules
         end
 
         config.before do
