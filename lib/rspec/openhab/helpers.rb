@@ -110,6 +110,10 @@ module RSpec
         # TODO: still needed?
         require_relative "dsl/rules/triggers/watch"
 
+        ps = RSpec::OpenHAB::Core::Mocks::PersistenceService.instance
+        bundle = org.osgi.framework.FrameworkUtil.get_bundle(org.openhab.core.persistence.PersistenceService)
+        bundle.bundle_context.register_service(org.openhab.core.persistence.PersistenceService.java_class, ps, nil)
+
         thf = Core::Mocks::ThingHandlerFactory.instance
         bundle = org.osgi.framework.FrameworkUtil.get_bundle(org.openhab.core.thing.Thing)
         Core::Mocks::BundleResolver.instance.register_class(thf.class, bundle)

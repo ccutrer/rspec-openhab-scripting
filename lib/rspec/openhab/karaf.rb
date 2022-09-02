@@ -404,7 +404,9 @@ module RSpec
       end
 
       def link_osgi
-        ::OpenHAB::Core::OSGI.instance_variable_set(:@bundle, @framework) if require "openhab/core/osgi"
+        @mutex.synchronize do
+          ::OpenHAB::Core::OSGI.instance_variable_set(:@bundle, @framework) if require "openhab/core/osgi"
+        end
       end
 
       # import global variables and constants that openhab-scripting gem expects,
