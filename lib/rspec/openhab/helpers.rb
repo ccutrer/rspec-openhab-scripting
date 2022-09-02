@@ -47,9 +47,14 @@ module RSpec
       singleton_class.include(Helpers)
 
       def autoupdate_all_items
-        @autoupdated_items ||= {}
+        if instance_variable_defined?(:@autoupdated_items)
+          raise RuntimeError "you should only call `autoupdate_all_items` once per spec"
+        end
+
+        @autoupdated_items = []
+
         $ir.for_each do |_provider, item|
-          @autoupdated_items[item] = item.meta.delete("autoupdate") if item.meta.key?("autoupdate")
+          @autoupdated_items << item.meta.delete("autoupdate") if item.meta.key?("autoupdate")
         end
       end
 
@@ -106,9 +111,9 @@ module RSpec
         require_relative "dsl/rules/triggers/watch"
 
         thf = Core::Mocks::ThingHandlerFactory.instance
-        Core::Mocks::BundleResolver.instance.register_class(thf.class, main.framework)
-        tm = ::OpenHAB::Core::OSGI.service("org.openhab.core.thing.ThingManager")
-        tm.add_thing_handler_factory(thf)
+        bundle = org.osgi.framework.FrameworkUtil.get_bundle(org.openhab.core.thing.Thing)
+        Core::Mocks::BundleResolver.instance.register_class(thf.class, bundle)
+        bundle.bundle_context.register_service(org.openhab.core.thing.binding.ThingHandlerFactory.java_class, thf, nil)
 
         # wait for the rule engine
         rs = ::OpenHAB::Core::OSGI.service("org.openhab.core.service.ReadyService")
@@ -276,12 +281,37 @@ module RSpec
           .split("/")
       end
 
+      # need to transfer autoupdate metadata from GenericMetadataProvider to ManagedMetadataProvider
+      # so that we can mutate it in the future
+      def set_up_autoupdates
+        gmp = ::OpenHAB::Core::OSGI.service("org.openhab.core.model.item.internal.GenericMetadataProvider")
+        mr = ::OpenHAB::Core::OSGI.service("org.openhab.core.items.MetadataRegistry")
+        mmp = mr.managed_provider.get
+        to_add = []
+        gmp.all.each do |metadata|
+          next unless metadata.uid.namespace == "autoupdate"
+
+          to_add << metadata
+        end
+        gmp.remove_metadata_by_namespace("autoupdate")
+
+        to_add.each do |m|
+          if mmp.get(m.uid)
+            mmp.update(m)
+          else
+            mmp.add(m)
+          end
+        end
+      end
+
       def restore_autoupdate_items
         return unless instance_variable_defined?(:@autoupdated_items)
 
-        @autoupdated_items.each do |(item, meta)|
-          item.meta["autoupdate"] = meta
+        mr = ::OpenHAB::Core::OSGI.service("org.openhab.core.items.MetadataRegistry")
+        @autoupdated_items&.each do |meta|
+          mr.add(meta)
         end
+        @autoupdated_items = nil
       end
 
       def populate_channel_types_from_api(api)

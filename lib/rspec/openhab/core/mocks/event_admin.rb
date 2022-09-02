@@ -87,10 +87,9 @@ module RSpec
 
         class EventAdmin < org.osgi.util.tracker.ServiceTracker
           include org.osgi.service.event.EventAdmin
-          include Singleton
 
-          def initialize
-            super(::OpenHAB::Core::OSGI.send(:bundle_context), "org.osgi.service.event.EventHandler", nil)
+          def initialize(bundle_context)
+            super(bundle_context, "org.osgi.service.event.EventHandler", nil)
 
             @handlers_matching_all_events = []
             @handlers_matching_topics = Hash.new { |h, k| h[k] = [] }

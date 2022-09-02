@@ -8,6 +8,7 @@ module RSpec
           Helpers.launch_karaf
           config.include ::OpenHAB::Core::EntityLookup
           Helpers.autorequires
+          Helpers.send(:set_up_autoupdates)
           Helpers.load_transforms
           Helpers.load_rules
         end

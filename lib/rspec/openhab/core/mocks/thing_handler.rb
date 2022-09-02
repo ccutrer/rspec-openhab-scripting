@@ -32,6 +32,7 @@ module RSpec
           end
 
           def child_handler_initialized(child_handler, child_thing); end
+          def child_handler_disposed(child_handler, child_thing); end
 
           def channel_linked(_channel_uid); end
           def channel_unlinked(_channel_uid); end
@@ -41,6 +42,21 @@ module RSpec
 
         class ThingHandlerFactory < org.openhab.core.thing.binding.BaseThingHandlerFactory
           include Singleton
+
+          class ComponentContext
+            include org.osgi.service.component.ComponentContext
+            include Singleton
+
+            def getBundleContext
+              org.osgi.framework.FrameworkUtil.get_bundle(org.openhab.core.thing.Thing).bundle_context
+            end
+          end
+          private_constant :ComponentContext
+
+          def initialize
+            super
+            activate(ComponentContext.instance)
+          end
 
           def supportsThingType(_type)
             true
