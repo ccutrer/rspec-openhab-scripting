@@ -95,8 +95,6 @@ module RSpec
         # ensure we're not logging to stdout
         java.util.logging.LogManager.log_manager.reset
 
-        # see https://github.com/jruby/jruby/issues/7338
-        @mutex = Mutex.new
         # launch it! (don't use Main.main; it will wait for it to be
         # shut down externally)
         @all_bundles_continue = nil
@@ -182,9 +180,7 @@ module RSpec
 
         @main.launch_simple do
           # hook up the OSGI class loader manually
-          @mutex.synchronize do
-            ::JRuby.runtime.instance_config.add_loader(JRuby::OSGiBundleClassLoader.new(@main.framework))
-          end
+          ::JRuby.runtime.instance_config.add_loader(JRuby::OSGiBundleClassLoader.new(@main.framework))
 
           @framework = @main.framework
           @bundle_context = @main.framework.bundle_context
@@ -201,18 +197,16 @@ module RSpec
             next if defined?(OpenHAB::Core::Mocks::EventAdmin) && service.is_a?(OpenHAB::Core::Mocks::EventAdmin)
 
             bundle = org.osgi.framework.FrameworkUtil.get_bundle(service.class)
-            @mutex.synchronize do
-              ::JRuby.runtime.instance_config.add_loader(JRuby::OSGiBundleClassLoader.new(bundle))
-              require "rspec/openhab/core/mocks/event_admin"
-              ea = OpenHAB::Core::Mocks::EventAdmin.new(@bundle_context)
-              # we need to register it as if from the regular eventadmin bundle so other bundles
-              # can properly find it
-              bundle.bundle_context.register_service(
-                org.osgi.service.event.EventAdmin.java_class,
-                ea,
-                java.util.Hashtable.new(org.osgi.framework.Constants::SERVICE_RANKING => 1.to_java(:int))
-              )
-            end
+            ::JRuby.runtime.instance_config.add_loader(JRuby::OSGiBundleClassLoader.new(bundle))
+            require "rspec/openhab/core/mocks/event_admin"
+            ea = OpenHAB::Core::Mocks::EventAdmin.new(@bundle_context)
+            # we need to register it as if from the regular eventadmin bundle so other bundles
+            # can properly find it
+            bundle.bundle_context.register_service(
+              org.osgi.service.event.EventAdmin.java_class,
+              ea,
+              java.util.Hashtable.new(org.osgi.framework.Constants::SERVICE_RANKING => 1.to_java(:int))
+            )
           end
           wait_for_service("org.openhab.core.karaf.internal.FeatureInstaller") do |fi|
             ca = ::OpenHAB::Core::OSGI.service("org.osgi.service.cm.ConfigurationAdmin")
@@ -288,9 +282,7 @@ module RSpec
           end
           next unless event.type == org.osgi.framework.BundleEvent::STARTED
 
-          @mutex.synchronize do
-            ::JRuby.runtime.instance_config.add_loader(bundle)
-          end
+          ::JRuby.runtime.instance_config.add_loader(bundle)
 
           # as soon as we _can_ do this, do it
           link_osgi if bundle.get_resource("org/slf4j/LoggerFactory.class")
@@ -326,9 +318,7 @@ module RSpec
         @bundle_context.bundles.each do |bundle|
           next unless bundle.symbolic_name.start_with?("org.openhab.core")
 
-          @mutex.synchronize do
-            ::JRuby.runtime.instance_config.add_loader(bundle)
-          end
+          ::JRuby.runtime.instance_config.add_loader(bundle)
         end
       end
 
@@ -404,9 +394,7 @@ module RSpec
       end
 
       def link_osgi
-        @mutex.synchronize do
-          ::OpenHAB::Core::OSGI.instance_variable_set(:@bundle, @framework) if require "openhab/core/osgi"
-        end
+        ::OpenHAB::Core::OSGI.instance_variable_set(:@bundle, @framework) if require "openhab/core/osgi"
       end
 
       # import global variables and constants that openhab-scripting gem expects,
