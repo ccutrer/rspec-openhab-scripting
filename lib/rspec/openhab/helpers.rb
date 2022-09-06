@@ -94,9 +94,6 @@ module RSpec
         require "openhab"
         require "rspec/openhab/core/logger"
 
-        # during testing, we don't want "regular" output from rules
-        ::OpenHAB::Log.logger("org.openhab.automation.jruby.runtime").level = :warn
-        ::OpenHAB::Log.logger("org.openhab.automation.jruby.logger").level = :warn
         require "rspec/openhab/core/mocks/persistence_service"
         require "rspec/openhab/core/mocks/thing_handler"
 
