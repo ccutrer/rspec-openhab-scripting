@@ -54,7 +54,10 @@ module RSpec
         @autoupdated_items = []
 
         $ir.for_each do |_provider, item|
-          @autoupdated_items << item.meta.delete("autoupdate") if item.meta.key?("autoupdate")
+          if item.meta.key?("autoupdate")
+            @autoupdated_items << item.meta.delete("autoupdate")
+            item.meta["autoupdate"] = true
+          end
         end
       end
 
@@ -215,7 +218,7 @@ module RSpec
 
         mr = ::OpenHAB::Core::OSGI.service("org.openhab.core.items.MetadataRegistry")
         @autoupdated_items&.each do |meta|
-          mr.add(meta)
+          mr.update(meta)
         end
         @autoupdated_items = nil
       end
