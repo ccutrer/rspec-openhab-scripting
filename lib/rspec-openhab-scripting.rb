@@ -6,5 +6,5 @@ $LOAD_PATH.unshift("#{__dir__}/rspec")
 require "diff/lcs"
 
 require "rspec/openhab/helpers"
-require "rspec/openhab/hooks"
 require "rspec/openhab/karaf"
+require "rspec/openhab/hooks"

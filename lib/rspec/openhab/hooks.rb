@@ -2,6 +2,14 @@
 
 module RSpec
   module OpenHAB
+    if defined?(IRB)
+      Object.include RSpec::OpenHAB::Helpers
+      launch_karaf
+      autorequires
+      set_up_autoupdates
+      load_rules
+    end
+
     if RSpec.respond_to?(:configure)
       RSpec.configure do |config|
         config.before(:suite) do
