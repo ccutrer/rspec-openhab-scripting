@@ -37,7 +37,13 @@ module RSpec
           end
         end
 
+        config.before do
+          @item_provider = ::OpenHAB::DSL::Items::ItemProvider.send(:new)
+          allow(::OpenHAB::DSL::Items::ItemProvider).to receive(:instance).and_return(@item_provider)
+        end
+
         config.after do
+          $ir.remove_provider(@item_provider) if @item_provider
           ::OpenHAB::DSL::Timers.timer_manager.cancel_all
           Timecop.return
           restore_autoupdate_items

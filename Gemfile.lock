@@ -1,4 +1,12 @@
 PATH
+  remote: ../openhab-jruby
+  specs:
+    openhab-scripting (4.44.1)
+      bundler (~> 2.2)
+      marcel (~> 1.0)
+      method_source (~> 1.0)
+
+PATH
   remote: ../rubocop
   specs:
     rubocop (1.31.2)
@@ -38,10 +46,6 @@ GEM
     method_source (1.0.0)
     net-http-persistent (4.0.1)
       connection_pool (~> 2.2)
-    openhab-scripting (4.44.2)
-      bundler (~> 2.2)
-      marcel (~> 1.0)
-      method_source (~> 1.0)
     parallel (1.22.1)
     parser (3.1.2.1)
       ast (~> 2.4.1)
@@ -81,6 +85,7 @@ PLATFORMS
   x86_64-linux
 
 DEPENDENCIES
+  openhab-scripting!
   rake (~> 13.0)
   rspec (~> 3.11)
   rspec-openhab-scripting!
