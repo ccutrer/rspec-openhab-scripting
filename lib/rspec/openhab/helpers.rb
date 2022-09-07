@@ -83,8 +83,7 @@ module RSpec
       end
 
       def autorequires
-        ca = ::OpenHAB::Core::OSGI.service("org.osgi.service.cm.ConfigurationAdmin")
-        requires = ca.get_configuration("org.openhab.automation.jrubyscripting")&.properties&.get("require") || ""
+        requires = jrubyscripting_config&.get("require") || ""
         requires.split(",").each do |f|
           require f.strip
         end
@@ -94,6 +93,9 @@ module RSpec
         karaf = RSpec::OpenHAB::Karaf.new("#{Dir.pwd}/.karaf")
         main = karaf.launch
 
+        ENV["RUBYLIB"] ||= ""
+        ENV["RUBYLIB"] += ":" unless ENV["RUBYLIB"].empty?
+        ENV["RUBYLIB"] += rubylib_dir
         require "openhab"
         require "rspec/openhab/core/logger"
 
@@ -167,6 +169,15 @@ module RSpec
       end
 
       private
+
+      def jrubyscripting_config
+        ca = ::OpenHAB::Core::OSGI.service("org.osgi.service.cm.ConfigurationAdmin")
+        ca.get_configuration("org.openhab.automation.jrubyscripting")&.properties
+      end
+
+      def rubylib_dir
+        jrubyscripting_config&.get("rubylib") || "#{org.openhab.core.OpenHAB.config_folder}/automation/lib/ruby"
+      end
 
       EMACS_MODELINE_REGEXP = /# -\*-(.+)-\*-/.freeze
 
