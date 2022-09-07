@@ -100,7 +100,6 @@ module RSpec
         require "rspec/openhab/core/logger"
 
         require "rspec/openhab/core/mocks/persistence_service"
-        require "rspec/openhab/core/mocks/thing_handler"
 
         # override several openhab-scripting methods
         require_relative "actions"
@@ -112,11 +111,6 @@ module RSpec
         ps = RSpec::OpenHAB::Core::Mocks::PersistenceService.instance
         bundle = org.osgi.framework.FrameworkUtil.get_bundle(org.openhab.core.persistence.PersistenceService)
         bundle.bundle_context.register_service(org.openhab.core.persistence.PersistenceService.java_class, ps, nil)
-
-        thf = Core::Mocks::ThingHandlerFactory.instance
-        bundle = org.osgi.framework.FrameworkUtil.get_bundle(org.openhab.core.thing.Thing)
-        Core::Mocks::BundleResolver.instance.register_class(thf.class, bundle)
-        bundle.bundle_context.register_service(org.openhab.core.thing.binding.ThingHandlerFactory.java_class, thf, nil)
 
         # wait for the rule engine
         rs = ::OpenHAB::Core::OSGI.service("org.openhab.core.service.ReadyService")

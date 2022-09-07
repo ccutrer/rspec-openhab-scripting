@@ -2,6 +2,7 @@
 
 require "fileutils"
 require "jruby"
+require "set"
 require "shellwords"
 require "time"
 
@@ -98,6 +99,7 @@ module RSpec
         # launch it! (don't use Main.main; it will wait for it to be
         # shut down externally)
         @all_bundles_continue = nil
+        @class_loaders = Set.new
         @main = org.apache.karaf.main.Main.new([])
         launch_karaf
         at_exit do
@@ -180,7 +182,7 @@ module RSpec
 
         @main.launch_simple do
           # hook up the OSGI class loader manually
-          ::JRuby.runtime.instance_config.add_loader(JRuby::OSGiBundleClassLoader.new(@main.framework))
+          add_class_loader(@main.framework)
 
           @framework = @main.framework
           @bundle_context = @main.framework.bundle_context
@@ -188,6 +190,9 @@ module RSpec
           # prevent entirely blocked bundles from starting at all
           @main.framework.bundle_context.bundles.each do |b|
             sl = b.adapt(org.osgi.framework.startlevel.BundleStartLevel.java_class)
+            if (start_level = START_LEVEL_OVERRIDES[b.symbolic_name])
+              sl.start_level = start_level
+            end
             sl.start_level = @main.config.defaultStartLevel + 1 if blocked_bundle?(b)
           end
 
@@ -196,10 +201,9 @@ module RSpec
           wait_for_service("org.osgi.service.event.EventAdmin") do |service|
             next if defined?(OpenHAB::Core::Mocks::EventAdmin) && service.is_a?(OpenHAB::Core::Mocks::EventAdmin)
 
-            bundle = org.osgi.framework.FrameworkUtil.get_bundle(service.class)
-            ::JRuby.runtime.instance_config.add_loader(JRuby::OSGiBundleClassLoader.new(bundle))
             require "rspec/openhab/core/mocks/event_admin"
             ea = OpenHAB::Core::Mocks::EventAdmin.new(@bundle_context)
+            bundle = org.osgi.framework.FrameworkUtil.get_bundle(service.class)
             # we need to register it as if from the regular eventadmin bundle so other bundles
             # can properly find it
             bundle.bundle_context.register_service(
@@ -208,11 +212,31 @@ module RSpec
               java.util.Hashtable.new(org.osgi.framework.Constants::SERVICE_RANKING => 1.to_java(:int))
             )
           end
-          wait_for_service("org.openhab.core.karaf.internal.FeatureInstaller") do |fi|
-            ca = ::OpenHAB::Core::OSGI.service("org.osgi.service.cm.ConfigurationAdmin")
-            cfg = ca.get_configuration(org.openhab.core.OpenHAB::ADDONS_SERVICE_PID, nil)
-            cfg.update(java.util.Hashtable.new) if cfg.properties.nil?
-            fi.addAddon("automation", "jrubyscripting")
+          wait_for_service("org.apache.karaf.features.FeaturesService") do |fs|
+            require "rspec/openhab/core/mocks/bundle_install_support"
+            fs.class.field_reader :installSupport
+            field = fs.class.java_class.get_declared_field("installSupport")
+            field.accessible = true
+            field.set(fs, OpenHAB::Core::Mocks::BundleInstallSupport.new(fs.installSupport, self))
+          end
+          wait_for_service("org.osgi.service.cm.ConfigurationAdmin") do |ca|
+            cfg = ca.get_configuration("org.openhab.addons", nil)
+            props = cfg.properties || java.util.Hashtable.new
+            # remove all non-binding addons
+            props.remove("misc")
+            props.remove("package")
+            props.remove("persistence")
+            props.remove("transformation")
+            props.remove("ui")
+            # except we need jrubyscripting
+            props.put("automation", "jrubyscripting")
+            cfg.update(props)
+
+            # configure persistence to use the mock service
+            cfg = ca.get_configuration("org.openhab.persistence", nil)
+            props = cfg.properties || java.util.Hashtable.new
+            props.put("default", "default")
+            cfg.update(props)
           end
           wait_for_service("org.openhab.core.automation.RuleManager") do |re|
             require "rspec/openhab/core/mocks/synchronous_executor"
@@ -226,6 +250,22 @@ module RSpec
         end
       end
 
+      # entire bundle trees that are allowed to be installed,
+      # but not started
+      BLOCKED_BUNDLE_TREES = %w[
+        io.netty
+        javax.servlet
+        org.apache.sshd
+        org.eclipse.jetty
+        org.ops4j.pax.web
+        org.openhab.core.auth
+        org.openhab.binding
+        org.openhab.core.config.discovery
+        org.openhab.core.io
+        org.openhab.transform
+      ].freeze
+      private_constant :BLOCKED_BUNDLE_TREES
+
       BLOCKED_COMPONENTS = {
         "org.openhab.core" => %w[
           org.openhab.core.addon.AddonEventFactory
@@ -237,24 +277,16 @@ module RSpec
         "org.openhab.core.automation.module.script.rulesupport" => %w[
           org.openhab.core.automation.module.script.rulesupport.internal.loader.DefaultScriptFileWatcher
         ].freeze,
-        "org.openhab.core.binding.xml" => "org.openhab.core.binding.xml.internal.BindingXmlConfigDescriptionProvider",
         "org.openhab.core.config.core" => %w[
           org.openhab.core.config.core.internal.i18n.I18nConfigOptionsProvider
           org.openhab.core.config.core.status.ConfigStatusService
           org.openhab.core.config.core.status.events.ConfigStatusEventFactory
         ],
-        "org.openhab.core.config.discovery" => nil,
-        "org.openhab.core.config.dispatch" => nil,
-        "org.openhab.core.io.net" => nil,
-        "org.openhab.core.model.rule.runtime" => nil,
-        "org.openhab.core.model.rule" => nil,
         "org.openhab.core.model.script" => %w[
           org.openhab.core.model.script.internal.RuleHumanLanguageInterpreter
           org.openhab.core.model.script.internal.engine.action.VoiceActionService
           org.openhab.core.model.script.jvmmodel.ScriptItemRefresher
         ].freeze,
-        "org.openhab.core.model.sitemap.runtime" => nil,
-        "org.openhab.core.voice" => nil,
         # the following bundles are blocked completely from starting
         "org.apache.karaf.http.core" => nil,
         "org.apache.karaf.shell.commands" => nil,
@@ -262,27 +294,69 @@ module RSpec
         "org.apache.karaf.shell.ssh" => nil,
         "org.openhab.core.audio" => nil,
         "org.openhab.core.automation.module.media" => nil,
-        "org.openhab.core.io.console" => nil,
-        "org.openhab.core.io.http" => nil,
-        "org.openhab.core.io.rest" => nil,
-        "org.openhab.core.io.rest.core" => nil,
-        "org.openhab.core.io.rest.sse" => nil,
-        "org.openhab.core.model.lsp" => nil
+        "org.openhab.core.config.dispatch" => nil,
+        "org.openhab.core.io.net" => nil,
+        "org.openhab.core.model.lsp" => nil,
+        "org.openhab.core.model.rule.runtime" => nil,
+        "org.openhab.core.model.rule" => nil,
+        "org.openhab.core.model.sitemap.runtime" => nil,
+        "org.openhab.core.voice" => nil
       }.freeze
       private_constant :BLOCKED_COMPONENTS
 
+      START_LEVEL_OVERRIDES = {
+        "org.openhab.core" => 78,
+        "org.openhab.core.thing" => 79,
+        "org.openhab.core.config" => 79
+      }.freeze
+      private_constant :START_LEVEL_OVERRIDES
+
       def set_up_bundle_listener
+        @thing_type_tracker = @config_description_tracker = nil
+        wait_for_service("org.openhab.core.thing.binding.ThingTypeProvider",
+                         filter: "(openhab.scope=core.xml.thing)") do |ttp|
+          ttp.class.field_reader :thingTypeTracker
+          @thing_type_tracker = ttp.thingTypeTracker
+          @thing_type_tracker.class.field_reader :openState
+          org.openhab.core.config.xml.osgi.XmlDocumentBundleTracker::OpenState.field_reader :OPENED
+          opened = org.openhab.core.config.xml.osgi.XmlDocumentBundleTracker::OpenState.OPENED
+          sleep until @thing_type_tracker.openState == opened
+          @bundle_context.bundles.each do |bundle|
+            @thing_type_tracker.adding_bundle(bundle, nil)
+          end
+        end
+        wait_for_service("org.openhab.core.config.core.ConfigDescriptionProvider",
+                         filter: "(openhab.scope=core.xml.config)") do |cdp|
+          cdp.class.field_reader :configDescriptionTracker
+          @config_description_tracker = cdp.configDescriptionTracker
+          @config_description_tracker.class.field_reader :openState
+          org.openhab.core.config.xml.osgi.XmlDocumentBundleTracker::OpenState.field_reader :OPENED
+          opened = org.openhab.core.config.xml.osgi.XmlDocumentBundleTracker::OpenState.OPENED
+          sleep until @config_description_tracker.openState == opened
+          @bundle_context.bundles.each do |bundle|
+            @config_description_tracker.adding_bundle(bundle, nil)
+          end
+        end
         wait_for_service("org.osgi.service.component.runtime.ServiceComponentRuntime") { |scr| @scr = scr }
         @bundle_context.add_bundle_listener do |event|
           bundle = event.bundle
           bundle_name = bundle.symbolic_name
-          if event.type == org.osgi.framework.BundleEvent::INSTALLED
-            sl = bundle.adapt(org.osgi.framework.startlevel.BundleStartLevel.java_class)
-            sl.start_level = @main.config.defaultStartLevel + 1 if blocked_bundle?(bundle)
+          sl = bundle.adapt(org.osgi.framework.startlevel.BundleStartLevel.java_class)
+          if (start_level = START_LEVEL_OVERRIDES[bundle_name])
+            sl.start_level = start_level
+          end
+          sl.start_level = @main.config.defaultStartLevel + 1 if blocked_bundle?(bundle)
+
+          if event.type == org.osgi.framework.BundleEvent::RESOLVED
+            @thing_type_tracker&.adding_bundle(event.bundle, nil)
+            @config_description_tracker&.adding_bundle(event.bundle, nil)
           end
           next unless event.type == org.osgi.framework.BundleEvent::STARTED
 
-          ::JRuby.runtime.instance_config.add_loader(bundle)
+          # just in case
+          raise "blocked bundle #{bundle.symbolic_name} started!" if blocked_bundle?(bundle)
+
+          add_class_loader(bundle)
 
           # as soon as we _can_ do this, do it
           link_osgi if bundle.get_resource("org/slf4j/LoggerFactory.class")
@@ -292,14 +366,25 @@ module RSpec
             @all_bundles_continue = nil
           end
 
-          if bundle_name == "org.openhab.core"
+          if bundle_name == "org.openhab.core.thing"
             require "rspec/openhab/core/mocks/bundle_resolver"
             bundle.bundle_context.register_service(
               org.openhab.core.util.BundleResolver.java_class,
               Core::Mocks::BundleResolver.instance,
               java.util.Hashtable.new(org.osgi.framework.Constants::SERVICE_RANKING => 1.to_java(:int))
             )
+
+            require "rspec/openhab/core/mocks/thing_handler"
+            thf = Core::Mocks::ThingHandlerFactory.instance
+            bundle = org.osgi.framework.FrameworkUtil.get_bundle(org.openhab.core.thing.Thing)
+            Core::Mocks::BundleResolver.instance.register_class(thf.class, bundle)
+            bundle.bundle_context.register_service(org.openhab.core.thing.binding.ThingHandlerFactory.java_class, thf,
+                                                   nil)
           end
+          if bundle_name == "org.openhab.core.automation"
+            org.openhab.core.automation.internal.TriggerHandlerCallbackImpl.field_accessor :executor
+          end
+
           next unless BLOCKED_COMPONENTS.key?(bundle_name)
 
           components = BLOCKED_COMPONENTS[bundle_name]
@@ -318,7 +403,7 @@ module RSpec
         @bundle_context.bundles.each do |bundle|
           next unless bundle.symbolic_name.start_with?("org.openhab.core")
 
-          ::JRuby.runtime.instance_config.add_loader(bundle)
+          add_class_loader(bundle)
         end
       end
 
@@ -333,8 +418,15 @@ module RSpec
           ref.get_property(org.osgi.framework.Constants::OBJECTCLASS).each do |klass|
             next unless @awaiting_services.key?(klass)
 
-            service ||= @bundle_context.get_service(ref)
-            @awaiting_services.delete(klass).call(service)
+            @awaiting_services[klass].each do |(block, filter)|
+              service ||= @bundle_context.get_service(ref)
+              next if filter && !filter.match(ref)
+
+              service ||= @bundle_context.get_service(ref)
+              bundle = org.osgi.framework.FrameworkUtil.get_bundle(service.class)
+              add_class_loader(bundle) if bundle
+              block.call(service)
+            end
           end
         rescue Exception => e
           puts e.inspect
@@ -342,13 +434,21 @@ module RSpec
         end
       end
 
-      def wait_for_service(service_name, &block)
+      def add_class_loader(bundle)
+        return if @class_loaders.include?(bundle.symbolic_name)
+
+        @class_loaders << bundle.symbolic_name
+        ::JRuby.runtime.instance_config.add_loader(JRuby::OSGiBundleClassLoader.new(bundle))
+      end
+
+      def wait_for_service(service_name, filter: nil, &block)
         if defined?(::OpenHAB::Core::OSGI) &&
-           (service = ::OpenHAB::Core::OSGI.service(service_name))
-          return yield service
+           (services = ::OpenHAB::Core::OSGI.services(service_name, filter: filter))
+          services.each(&block)
         end
 
-        @awaiting_services[service_name] = block
+        waiters = @awaiting_services[service_name] ||= []
+        waiters << [block, filter && @bundle_context.create_filter(filter)]
       end
 
       def wait_for_start
@@ -371,8 +471,7 @@ module RSpec
 
       def blocked_bundle?(bundle)
         BLOCKED_COMPONENTS.fetch(bundle.symbolic_name, false).nil? ||
-          bundle.symbolic_name.start_with?("org.eclipse.jetty") ||
-          bundle.symbolic_name.start_with?("org.ops4j.pax.web") ||
+          BLOCKED_BUNDLE_TREES.any? { |tree| bundle.symbolic_name.start_with?(tree) } ||
           bundle.fragment?
       end
 
@@ -498,15 +597,14 @@ module RSpec
 
       def cleanup_clone
         FileUtils.rm_rf(["#{path}/cache",
-                         "#{path}/config/org/apache/felix/fileinstall",
+                         # "#{path}/config/org/apache/felix/fileinstall",
                          "#{path}/jsondb/backup",
                          "#{path}/marketplace",
                          "#{path}/log/*",
                          "#{path}/tmp/*",
                          "#{path}/jsondb/org.openhab.marketplace.json",
                          "#{path}/jsondb/org.openhab.jsonaddonservice.json",
-                         "#{path}/config/org/openhab/jsonaddonservice.config",
-                         "#{path}/config/org/openhab/addons.config"])
+                         "#{path}/config/org/openhab/jsonaddonservice.config"])
       end
 
       def prune_startlevels
@@ -516,8 +614,7 @@ module RSpec
       end
 
       def minimize_installed_features
-        # cuts down openhab-runtime-base significantly (importantly,
-        # including the OpenHAB karaf FeatureInstaller), makes sure
+        # cuts down openhab-runtime-base significantly, makes sure
         # openhab-runtime-ui doesn't get installed (from profile.cfg),
         # double-makes-sure no addons get installed, and marks several
         # bundles to not actually start, even though they must still be
@@ -527,9 +624,6 @@ module RSpec
           <featuresProcessing xmlns="http://karaf.apache.org/xmlns/features-processing/v1.0.0" xmlns:f="http://karaf.apache.org/xmlns/features/v1.6.0">
               <blacklistedFeatures>
                 <feature>openhab-runtime-ui</feature>
-                <feature>*-binding-*</feature>
-                <!--<feature>openhab-automation-*</feature>-->
-                <feature>openhab-core-io-*</feature>
                 <feature>openhab-core-ui*</feature>
                 <feature>openhab-misc-*</feature>
                 <feature>openhab-persistence-*</feature>
@@ -552,6 +646,8 @@ module RSpec
                     <f:feature>openhab-core-model-thing</f:feature>
                     <f:feature>openhab-core-storage-json</f:feature>
                     <f:feature>openhab-automation-jrubyscripting</f:feature>
+                    <f:feature>openhab-transport-http</f:feature>
+                    <f:bundle>mvn:org.openhab.core.bundles/org.openhab.core.karaf/3.4.0-SNAPSHOT</f:bundle>
                   </feature>
                 </replacement>
               </featureReplacements>

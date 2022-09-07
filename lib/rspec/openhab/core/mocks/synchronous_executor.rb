@@ -6,8 +6,6 @@ module RSpec
   module OpenHAB
     module Core
       module Mocks
-        org.openhab.core.automation.internal.TriggerHandlerCallbackImpl.field_accessor :executor
-
         class CallbacksMap < java.util.HashMap
           def put(_rule_uid, trigger_handler)
             trigger_handler.executor.shutdown_now
