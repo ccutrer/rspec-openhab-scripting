@@ -1,6 +1,7 @@
 require:
   - rubocop-rake
   - rubocop-performance
+  - rubocop-rspec
 
 AllCops:
   TargetRubyVersion: 2.6
@@ -21,6 +22,15 @@ Naming/FileName:
 
 Performance/Casecmp:
   AutoCorrect: false
+
+RSpec/DescribeClass:
+  Enabled: false
+RSpec/ExampleLength:
+  Enabled: false
+RSpec/MessageSpies:
+  Enabled: false
+RSpec/MultipleExpectations:
+  Enabled: false
 
 Style/Alias:
   EnforcedStyle: prefer_alias_method

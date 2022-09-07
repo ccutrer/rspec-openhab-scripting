@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "openhab/version"
+
 # we completely override some files from openhab-scripting
 $LOAD_PATH.unshift("#{__dir__}/rspec")
 

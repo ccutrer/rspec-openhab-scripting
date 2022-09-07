@@ -89,8 +89,11 @@ module RSpec
         end
       end
 
-      def launch_karaf
+      def launch_karaf(include_bindings: true, include_jsondb: true, private_confdir: false)
         karaf = RSpec::OpenHAB::Karaf.new("#{Dir.pwd}/.karaf")
+        karaf.include_bindings = include_bindings
+        karaf.include_jsondb = include_jsondb
+        karaf.private_confdir = private_confdir
         main = karaf.launch
 
         ENV["RUBYLIB"] ||= ""
@@ -131,6 +134,10 @@ module RSpec
           end
         end
         main
+      rescue Exception => e
+        puts e.inspect
+        puts e.backtrace
+        raise
       end
 
       def load_rules

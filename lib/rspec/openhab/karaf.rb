@@ -24,9 +24,13 @@ module RSpec
       private_constant :ScriptExtensionManagerWrapper
 
       attr_reader :path
+      attr_accessor :include_bindings, :include_jsondb, :private_confdir
 
       def initialize(path)
         @path = path
+        @include_bindings = true
+        @include_jsondb = true
+        @private_confdir = false
       end
 
       def launch
@@ -228,6 +232,7 @@ module RSpec
             props.remove("persistence")
             props.remove("transformation")
             props.remove("ui")
+            props.remove("binding") unless include_bindings
             # except we need jrubyscripting
             props.put("automation", "jrubyscripting")
             cfg.update(props)
@@ -560,6 +565,18 @@ module RSpec
       def set_env
         ENV["DIRNAME"] = "#{oh_runtime}/bin"
         ENV["KARAF_HOME"] = oh_runtime
+        if private_confdir
+          ENV["OPENHAB_CONF"] = "#{path}/conf"
+          FileUtils.mkdir_p([
+                              "#{path}/conf/items",
+                              "#{path}/conf/things",
+                              "#{path}/conf/scripts",
+                              "#{path}/conf/rules",
+                              "#{path}/conf/persistence",
+                              "#{path}/conf/sitemaps",
+                              "#{path}/conf/transform"
+                            ])
+        end
         Shell.source_env_from("#{oh_runtime}/bin/setenv")
       end
 
@@ -605,6 +622,7 @@ module RSpec
                          "#{path}/jsondb/org.openhab.marketplace.json",
                          "#{path}/jsondb/org.openhab.jsonaddonservice.json",
                          "#{path}/config/org/openhab/jsonaddonservice.config"])
+        FileUtils.rm_rf("#{path}/jsondb") unless include_jsondb
       end
 
       def prune_startlevels
