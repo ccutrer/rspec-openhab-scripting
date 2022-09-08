@@ -35,6 +35,7 @@ module RSpec
               item.state = NULL unless item.raw_state == NULL
             end
           end
+          @known_rules = ::OpenHAB::Core.rule_registry.all.map(&:uid)
         end
 
         config.before do
@@ -44,6 +45,10 @@ module RSpec
 
         config.after do
           $ir.remove_provider(@item_provider) if @item_provider
+          # remove rules created during the spec
+          (::OpenHAB::Core.rule_registry.all.map(&:uid) - @known_rules).each do |uid|
+            ::OpenHAB::Core.rule_registry.remove(uid)
+          end
           ::OpenHAB::DSL::Timers.timer_manager.cancel_all
           Timecop.return
           restore_autoupdate_items
