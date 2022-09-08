@@ -14,9 +14,12 @@ module RSpec
           end
         end
 
-        class SynchronousExecutor
-          include java.util.concurrent.ScheduledExecutorService
-          include Singleton
+        class SynchronousExecutor < java.util.concurrent.ScheduledThreadPoolExecutor
+          class << self
+            def instance
+              @instance ||= new(1)
+            end
+          end
 
           def submit(runnable)
             runnable.respond_to?(:run) ? runnable.run : runnable.call
@@ -27,12 +30,18 @@ module RSpec
           def execute(runnable)
             runnable.run
           end
+        end
 
-          def shutdown; end
-          def shutdown_now; end
+        class SynchronousExecutorMap
+          include java.util.Map
+          include Singleton
 
-          def shutdown?
-            false
+          def get(_key)
+            SynchronousExecutor.instance
+          end
+
+          def key_set
+            java.util.HashSet.new
           end
         end
       end

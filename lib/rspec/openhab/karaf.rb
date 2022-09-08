@@ -377,6 +377,12 @@ module RSpec
             @all_bundles_continue = nil
           end
 
+          if bundle_name == "org.openhab.core"
+            require "rspec/openhab/core/mocks/synchronous_executor"
+
+            org.openhab.core.common.ThreadPoolManager.field_accessor :pools
+            org.openhab.core.common.ThreadPoolManager.pools = Core::Mocks::SynchronousExecutorMap.instance
+          end
           if bundle_name == "org.openhab.core.thing"
             require "rspec/openhab/core/mocks/bundle_resolver"
             bundle.bundle_context.register_service(
