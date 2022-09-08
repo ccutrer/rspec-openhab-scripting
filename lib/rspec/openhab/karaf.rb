@@ -258,18 +258,23 @@ module RSpec
       # entire bundle trees that are allowed to be installed,
       # but not started
       BLOCKED_BUNDLE_TREES = %w[
-        io.netty
-        javax.servlet
+        org.apache.karaf.jaas
         org.apache.sshd
         org.eclipse.jetty
         org.ops4j.pax.web
-        org.openhab.core.auth
+        org.openhab.automation
         org.openhab.binding
-        org.openhab.core.config.discovery
         org.openhab.core.io
+        org.openhab.io
         org.openhab.transform
       ].freeze
       private_constant :BLOCKED_BUNDLE_TREES
+
+      ALLOWED_BUNDLES = %w[
+        org.openhab.automation.jrubyscripting
+        org.openhab.core.io.monitor
+      ].freeze
+      private_constant :ALLOWED_BUNDLES
 
       BLOCKED_COMPONENTS = {
         "org.openhab.core" => %w[
@@ -294,13 +299,14 @@ module RSpec
         ].freeze,
         # the following bundles are blocked completely from starting
         "org.apache.karaf.http.core" => nil,
+        "org.apache.karaf.features.command" => nil,
         "org.apache.karaf.shell.commands" => nil,
         "org.apache.karaf.shell.core" => nil,
         "org.apache.karaf.shell.ssh" => nil,
         "org.openhab.core.audio" => nil,
         "org.openhab.core.automation.module.media" => nil,
+        "org.openhab.core.config.discovery" => nil,
         "org.openhab.core.config.dispatch" => nil,
-        "org.openhab.core.io.net" => nil,
         "org.openhab.core.model.lsp" => nil,
         "org.openhab.core.model.rule.runtime" => nil,
         "org.openhab.core.model.rule" => nil,
@@ -475,6 +481,8 @@ module RSpec
       end
 
       def blocked_bundle?(bundle)
+        return false if ALLOWED_BUNDLES.include?(bundle.symbolic_name)
+
         BLOCKED_COMPONENTS.fetch(bundle.symbolic_name, false).nil? ||
           BLOCKED_BUNDLE_TREES.any? { |tree| bundle.symbolic_name.start_with?(tree) } ||
           bundle.fragment?
