@@ -25,6 +25,10 @@ module RSpec
             @thing = thing
           end
 
+          def thing_updated(thing)
+            @thing = thing
+          end
+
           def handle_command(channel, command); end
 
           def set_callback(callback)

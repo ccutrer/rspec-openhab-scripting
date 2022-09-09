@@ -24,22 +24,29 @@ module RSpec
       private_constant :ScriptExtensionManagerWrapper
 
       attr_reader :path
-      attr_accessor :include_bindings, :include_jsondb, :private_confdir
+      attr_accessor :include_bindings, :include_jsondb, :private_confdir, :use_root_instance
 
-      def initialize(path)
+      def initialize(path = nil)
         @path = path
         @include_bindings = true
         @include_jsondb = true
         @private_confdir = false
+        @use_root_instance = false
       end
 
       def launch
+        raise ArgumentError, "Path must be supplied if use_root_instance is false" unless path || use_root_instance
+
+        @path = oh_home if use_root_instance
+
         load_boot_jars
         set_env
         set_java_properties
         set_java_properties_from_env
-        redirect_instances
-        create_instance
+        unless use_root_instance
+          redirect_instances
+          create_instance
+        end
         start_instance
       end
 
@@ -71,9 +78,6 @@ module RSpec
         return if service.get_instance("rspec")
 
         service.clone_instance(root_instance.name, "rspec", settings, false)
-        cleanup_clone
-        prune_startlevels
-        minimize_installed_features
       ensure
         extra_loaders = ::JRuby.runtime.instance_config.extra_loaders
         loader = extra_loaders.find { |l| l.class_loader == @karaf_instance_loader }
@@ -81,20 +85,23 @@ module RSpec
       end
 
       def start_instance
-        # these are all from karaf.instances's startup code with
-        # the exception of not having data be a subdir
-        java.lang.System.set_property("karaf.base", path)
-        java.lang.System.set_property("karaf.data", path)
-        java.lang.System.set_property("karaf.etc", "#{path}/etc")
-        java.lang.System.set_property("karaf.log", "#{path}/log")
-        java.lang.System.set_property("java.io.tmpdir", "#{path}/tmp")
-        java.lang.System.set_property("karaf.startLocalConsole", "false")
-        java.lang.System.set_property("karaf.startRemoteShell", "false")
-        # set in bin/setenv to OPENHAB_USERDATA; need to move it
-        java.lang.System.set_property("felix.cm.dir", "#{path}/config")
-        # not handled by karaf instances
-        java.lang.System.set_property("openhab.userdata", path)
-        java.lang.System.set_property("openhab.logdir", "#{path}/log")
+        unless use_root_instance
+          # these are all from karaf.instances's startup code with
+          # the exception of not having data be a subdir
+          java.lang.System.set_property("karaf.base", path)
+          java.lang.System.set_property("karaf.data", path)
+          java.lang.System.set_property("karaf.etc", "#{path}/etc")
+          java.lang.System.set_property("karaf.log", "#{path}/logs")
+          java.lang.System.set_property("java.io.tmpdir", "#{path}/tmp")
+          java.lang.System.set_property("karaf.startLocalConsole", "false")
+          java.lang.System.set_property("karaf.startRemoteShell", "false")
+          # set in bin/setenv to OPENHAB_USERDATA; need to move it
+          java.lang.System.set_property("felix.cm.dir", felix_cm)
+          # not handled by karaf instances
+          java.lang.System.set_property("openhab.userdata", path)
+          java.lang.System.set_property("openhab.logdir", "#{path}/logs")
+        end
+        cleanup_instance
         # we don't need a shutdown socket
         java.lang.System.set_property("karaf.shutdown.port", "-1")
         # ensure we're not logging to stdout
@@ -200,6 +207,8 @@ module RSpec
             sl.start_level = @main.config.defaultStartLevel + 1 if blocked_bundle?(b)
           end
 
+          prune_startlevels
+
           set_up_service_listener
           # replace event infrastructure with synchronous versions
           wait_for_service("org.osgi.service.event.EventAdmin") do |service|
@@ -223,6 +232,22 @@ module RSpec
             field.accessible = true
             field.set(fs, OpenHAB::Core::Mocks::BundleInstallSupport.new(fs.installSupport, self))
           end
+          # wait_for_service("org.openhab.core.config.dispatch.internal.ConfigDispatcher") do |cd|
+          #   ca = ::OpenHAB::Core::OSGI.service("org.osgi.service.cm.ConfigurationAdmin")
+          #   cfg = ca.get_configuration("org.openhab.startlevel", nil)
+          #   props = cfg.properties
+          #   line = props.get("40")
+          #   puts "adjusting startlevel 40 from #{line}"
+          #   markers = line.split(",")
+          #   if [markers.delete("rules:refresh"),
+          #      markers.delete("rules:dslprovider")].any?
+          #      line = markers.join(",")
+          #      props.put("40", line)
+          #      puts "to #{line}"
+          #      cfg.update(props)
+          #      puts "done"
+          #   end
+          # end
           wait_for_service("org.osgi.service.cm.ConfigurationAdmin") do |ca|
             cfg = ca.get_configuration("org.openhab.addons", nil)
             props = cfg.properties || java.util.Hashtable.new
@@ -306,7 +331,6 @@ module RSpec
         "org.openhab.core.audio" => nil,
         "org.openhab.core.automation.module.media" => nil,
         "org.openhab.core.config.discovery" => nil,
-        "org.openhab.core.config.dispatch" => nil,
         "org.openhab.core.model.lsp" => nil,
         "org.openhab.core.model.rule.runtime" => nil,
         "org.openhab.core.model.rule" => nil,
@@ -552,20 +576,27 @@ module RSpec
       # find it manually
       def find_karaf_instance_jar
         resolver = org.apache.karaf.main.util.SimpleMavenResolver.new([java.io.File.new("#{oh_runtime}/system")])
-        slf4j = resolver.resolve(java.net.URI.new("mvn:org.ops4j.pax.logging/pax-logging-api/2.0.16"))
-        version = find_boot_jar_version("org.apache.karaf.main")
-        karaf_instance = resolver.resolve(java.net.URI.new(
-                                            "mvn:org.apache.karaf.instance/org.apache.karaf.instance.core/#{version}"
-                                          ))
+        slf4j_version = find_maven_jar_version("org.ops4j.pax.logging", "pax-logging-api")
+        slf4j = resolver.resolve(java.net.URI.new("mvn:org.ops4j.pax.logging/pax-logging-api/#{slf4j_version}"))
+        karaf_version = find_jar_version("#{oh_runtime}/lib/boot", "org.apache.karaf.main")
+        karaf_instance = resolver.resolve(
+          java.net.URI.new(
+            "mvn:org.apache.karaf.instance/org.apache.karaf.instance.core/#{karaf_version}"
+          )
+        )
         @karaf_instance_loader = java.net.URLClassLoader.new(
           [slf4j.to_url, karaf_instance.to_url].to_java(java.net.URL), ::JRuby.runtime.jruby_class_loader
         )
         ::JRuby.runtime.instance_config.add_loader(@karaf_instance_loader)
       end
 
-      def find_boot_jar_version(bundle)
-        prefix = "#{oh_runtime}/lib/boot/#{bundle}-"
-        Dir["#{prefix}*.jar"].map { |jar| jar[prefix.length...-4] }.max
+      def find_maven_jar_version(group, bundle)
+        Dir["#{oh_runtime}/system/#{group.tr(".", "/")}/#{bundle}/*"].map { |version| version.split("/").last }.max
+      end
+
+      def find_jar_version(path, bundle)
+        prefix = "#{path}/#{bundle}-"
+        Dir["#{prefix}*.jar"].map { |jar| jar.split("-", 2).last[0...-4] }.max
       end
 
       def load_boot_jars
@@ -626,23 +657,46 @@ module RSpec
         @oh_runtime ||= ENV.fetch("OPENHAB_RUNTIME", "#{oh_home}/runtime")
       end
 
+      def oh_conf
+        @oh_conf ||= ENV.fetch("OPENHAB_CONF")
+      end
+
+      def oh_userdata
+        @oh_userdata ||= java.lang.System.get_property("openhab.userdata")
+      end
+
+      def felix_cm
+        @felix_cm ||= use_root_instance ? ENV.fetch("OPENHAB_USERDATA") : "#{path}/config"
+      end
+
+      def cleanup_instance
+        cleanup_clone
+        minimize_installed_features
+      end
+
       def cleanup_clone
-        FileUtils.rm_rf(["#{path}/cache",
-                         # "#{path}/config/org/apache/felix/fileinstall",
-                         "#{path}/jsondb/backup",
-                         "#{path}/marketplace",
-                         "#{path}/log/*",
-                         "#{path}/tmp/*",
-                         "#{path}/jsondb/org.openhab.marketplace.json",
-                         "#{path}/jsondb/org.openhab.jsonaddonservice.json",
-                         "#{path}/config/org/openhab/jsonaddonservice.config"])
-        FileUtils.rm_rf("#{path}/jsondb") unless include_jsondb
+        FileUtils.rm_rf(["#{oh_userdata}/cache",
+                         "#{oh_userdata}/jsondb/backup",
+                         "#{oh_userdata}/marketplace",
+                         "#{oh_userdata}/logs/*",
+                         "#{oh_userdata}/tmp/*",
+                         "#{oh_userdata}/jsondb/org.openhab.marketplace.json",
+                         "#{oh_userdata}/jsondb/org.openhab.jsonaddonservice.json",
+                         "#{felix_cm}/org/openhab/jsonaddonservice.config"])
+        FileUtils.rm_rf("#{oh_userdata}/jsondb") unless include_jsondb
       end
 
       def prune_startlevels
-        startlevels = File.read("#{path}/config/org/openhab/startlevel.config")
+        config_file = java.lang.System.get_property("openhab.servicecfg")
+        return unless File.exist?(config_file)
+
+        startlevels = File.read(config_file)
         startlevels.sub!(",rules:refresh,rules:dslprovider", "")
-        File.write("#{path}/config/org/openhab/startlevel.config", startlevels)
+
+        target_file = "#{oh_userdata}/etc/services.cfg"
+        target_file_contents = File.read(target_file) if File.exist?(target_file)
+        File.write(target_file, startlevels) unless target_file_contents == startlevels
+        java.lang.System.set_property("openhab.servicecfg", target_file)
       end
 
       def minimize_installed_features
@@ -651,7 +705,8 @@ module RSpec
         # double-makes-sure no addons get installed, and marks several
         # bundles to not actually start, even though they must still be
         # installed to meet dependencies
-        File.write("#{path}/etc/org.apache.karaf.features.xml", <<~XML)
+        version = find_maven_jar_version("org.openhab.core.bundles", "org.openhab.core")
+        File.write("#{oh_userdata}/etc/org.apache.karaf.features.xml", <<~XML)
           <?xml version="1.0" encoding="UTF-8"?>
           <featuresProcessing xmlns="http://karaf.apache.org/xmlns/features-processing/v1.0.0" xmlns:f="http://karaf.apache.org/xmlns/features/v1.6.0">
               <blacklistedFeatures>
@@ -665,7 +720,7 @@ module RSpec
               </blacklistedFeatures>
               <featureReplacements>
                 <replacement mode="replace">
-                  <feature name="openhab-runtime-base" version="3.4.0.SNAPSHOT">
+                  <feature name="openhab-runtime-base" version="#{version.sub("-", ".")}">
                     <f:feature>openhab-core-base</f:feature>
                     <f:feature>openhab-core-automation-module-script</f:feature>
                     <f:feature>openhab-core-automation-module-script-rulesupport</f:feature>
@@ -679,7 +734,7 @@ module RSpec
                     <f:feature>openhab-core-storage-json</f:feature>
                     <f:feature>openhab-automation-jrubyscripting</f:feature>
                     <f:feature>openhab-transport-http</f:feature>
-                    <f:bundle>mvn:org.openhab.core.bundles/org.openhab.core.karaf/3.4.0-SNAPSHOT</f:bundle>
+                    <f:bundle>mvn:org.openhab.core.bundles/org.openhab.core.karaf/#{version}</f:bundle>
                   </feature>
                 </replacement>
               </featureReplacements>

@@ -89,11 +89,15 @@ module RSpec
         end
       end
 
-      def launch_karaf(include_bindings: true, include_jsondb: true, private_confdir: false)
+      def launch_karaf(include_bindings: true,
+                       include_jsondb: true,
+                       private_confdir: false,
+                       use_root_instance: false)
         karaf = RSpec::OpenHAB::Karaf.new("#{Dir.pwd}/.karaf")
         karaf.include_bindings = include_bindings
         karaf.include_jsondb = include_jsondb
         karaf.private_confdir = private_confdir
+        karaf.use_root_instance = use_root_instance
         main = karaf.launch
 
         ENV["RUBYLIB"] ||= ""
@@ -173,7 +177,7 @@ module RSpec
 
       def jrubyscripting_config
         ca = ::OpenHAB::Core::OSGI.service("org.osgi.service.cm.ConfigurationAdmin")
-        ca.get_configuration("org.openhab.automation.jrubyscripting")&.properties
+        ca.get_configuration("org.openhab.automation.jrubyscripting", nil)&.properties
       end
 
       def rubylib_dir

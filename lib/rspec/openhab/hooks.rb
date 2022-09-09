@@ -2,24 +2,20 @@
 
 module RSpec
   module OpenHAB
-    if defined?(IRB)
-      Object.include RSpec::OpenHAB::Helpers
-      launch_karaf
-      autorequires
-      set_up_autoupdates
-      load_rules
-    end
+    Object.include RSpec::OpenHAB::Helpers if defined?(IRB)
 
     if RSpec.respond_to?(:configure)
       RSpec.configure do |config|
         config.add_setting :include_openhab_bindings, default: true
         config.add_setting :include_openhab_jsondb, default: true
         config.add_setting :private_openhab_confdir, default: false
+        config.add_setting :use_root_openhab_instance, default: false
 
         config.before(:suite) do
           Helpers.launch_karaf(include_bindings: config.include_openhab_bindings,
                                include_jsondb: config.include_openhab_jsondb,
-                               private_confdir: config.private_openhab_confdir)
+                               private_confdir: config.private_openhab_confdir,
+                               use_root_instance: config.use_root_openhab_instance)
           config.include ::OpenHAB::Core::EntityLookup
           Helpers.autorequires unless config.private_openhab_confdir
           Helpers.send(:set_up_autoupdates)
@@ -44,11 +40,11 @@ module RSpec
         end
 
         config.after do
-          $ir.remove_provider(@item_provider) if @item_provider
           # remove rules created during the spec
           (::OpenHAB::Core.rule_registry.all.map(&:uid) - @known_rules).each do |uid|
             ::OpenHAB::Core.rule_registry.remove(uid)
           end
+          $ir.remove_provider(@item_provider) if @item_provider
           ::OpenHAB::DSL::Timers.timer_manager.cancel_all
           Timecop.return
           restore_autoupdate_items
