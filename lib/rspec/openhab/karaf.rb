@@ -232,22 +232,6 @@ module RSpec
             field.accessible = true
             field.set(fs, OpenHAB::Core::Mocks::BundleInstallSupport.new(fs.installSupport, self))
           end
-          # wait_for_service("org.openhab.core.config.dispatch.internal.ConfigDispatcher") do |cd|
-          #   ca = ::OpenHAB::Core::OSGI.service("org.osgi.service.cm.ConfigurationAdmin")
-          #   cfg = ca.get_configuration("org.openhab.startlevel", nil)
-          #   props = cfg.properties
-          #   line = props.get("40")
-          #   puts "adjusting startlevel 40 from #{line}"
-          #   markers = line.split(",")
-          #   if [markers.delete("rules:refresh"),
-          #      markers.delete("rules:dslprovider")].any?
-          #      line = markers.join(",")
-          #      props.put("40", line)
-          #      puts "to #{line}"
-          #      cfg.update(props)
-          #      puts "done"
-          #   end
-          # end
           wait_for_service("org.osgi.service.cm.ConfigurationAdmin") do |ca|
             cfg = ca.get_configuration("org.openhab.addons", nil)
             props = cfg.properties || java.util.Hashtable.new
@@ -322,7 +306,11 @@ module RSpec
           org.openhab.core.model.script.internal.engine.action.VoiceActionService
           org.openhab.core.model.script.jvmmodel.ScriptItemRefresher
         ].freeze,
+        "org.openhab.core.thing" => %w[
+          org.openhab.core.thing.internal.console.FirmwareUpdateConsoleCommandExtension
+        ],
         # the following bundles are blocked completely from starting
+        "org.apache.felix.fileinstall" => nil,
         "org.apache.karaf.http.core" => nil,
         "org.apache.karaf.features.command" => nil,
         "org.apache.karaf.shell.commands" => nil,
@@ -340,9 +328,6 @@ module RSpec
       private_constant :BLOCKED_COMPONENTS
 
       START_LEVEL_OVERRIDES = {
-        "org.openhab.core" => 78,
-        "org.openhab.core.thing" => 79,
-        "org.openhab.core.config" => 79
       }.freeze
       private_constant :START_LEVEL_OVERRIDES
 
@@ -433,9 +418,9 @@ module RSpec
                    @scr.get_component_description_dt_os(bundle)
                  else
                    Array(components).map { |component| @scr.get_component_description_dto(bundle, component) }
-                 end
+                 end.compact
           dtos.each do |dto|
-            @scr.disable_component(dto)
+            @scr.disable_component(dto) if @scr.component_enabled?(dto)
           end
         rescue Exception => e
           puts e.inspect
@@ -464,6 +449,8 @@ module RSpec
               next if filter && !filter.match(ref)
 
               service ||= @bundle_context.get_service(ref)
+              break unless service
+
               bundle = org.osgi.framework.FrameworkUtil.get_bundle(service.class)
               add_class_loader(bundle) if bundle
               block.call(service)

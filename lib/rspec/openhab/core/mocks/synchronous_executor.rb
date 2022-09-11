@@ -30,6 +30,12 @@ module RSpec
           def execute(runnable)
             runnable.run
           end
+
+          def shutdown; end
+
+          def shutdown_now
+            []
+          end
         end
 
         class SynchronousExecutorMap
