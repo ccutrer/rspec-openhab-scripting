@@ -137,3 +137,24 @@ OpenHAB::Transform::Ruby.compass("59 °")
 ```
 
 They're loaded into a sub-JRuby engine, just like they run in OpenHAB.
+
+## IRB
+
+If you would like to use a REPL sandbox to play with your items,
+you can run `bundle console`. You may want to create an `.irbrc`
+with the following contents to automatically boot things up:
+
+```ruby
+# frozen_string_literal: true
+
+require "rubygems"
+require "bundler"
+
+Bundler.require(:default, :development, :test)
+
+launch_karaf
+autorequires
+set_up_autoupdates
+load_rules
+load_transforms
+```

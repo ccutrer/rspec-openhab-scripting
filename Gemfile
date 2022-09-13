@@ -3,6 +3,3 @@
 source "https://rubygems.org"
 
 gemspec
-
-gem "openhab-scripting", path: "../openhab-jruby"
-gem "rubocop", path: "../rubocop"
