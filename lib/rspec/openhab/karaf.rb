@@ -705,6 +705,9 @@ module RSpec
       # workaround for https://github.com/openhab/openhab-core/pull/3092
       def reset_start_level_service
         sls = ::OpenHAB::Core::OSGI.service("org.openhab.core.service.StartLevelService")
+        # no SLS yet? then we couldn't have hit the bug
+        return unless sls
+
         rs = ::OpenHAB::Core::OSGI.service("org.openhab.core.service.ReadyService")
         sls.class.field_reader :trackers, :markers
         rs.class.field_reader :trackers
