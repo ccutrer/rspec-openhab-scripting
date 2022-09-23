@@ -7,9 +7,3 @@ rescue LoadError
 end
 
 Bundler::GemHelper.install_tasks
-
-require "jars/installer"
-desc "Generate _jars.rb file"
-task :install_jars do
-  Jars::Installer.new.vendor_jars
-end
