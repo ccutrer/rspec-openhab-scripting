@@ -165,7 +165,7 @@ module RSpec
 
           filename.slice!(0..transform_path.length)
           dir = File.dirname(filename)
-          modules = dir == "." ? [] : moduleize(dir)
+          modules = (dir == ".") ? [] : moduleize(dir)
           basename = File.basename(filename)
           method = basename[0...-7]
           modules << method

@@ -35,7 +35,7 @@ RSpec/MultipleExpectations:
 Style/Alias:
   EnforcedStyle: prefer_alias_method
 Style/BlockDelimiters:
-  IgnoredMethods: []
+  AllowedMethods: []
 Style/Documentation:
   Enabled: false
 Style/GlobalVars:

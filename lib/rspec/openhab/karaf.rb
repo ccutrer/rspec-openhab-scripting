@@ -233,6 +233,22 @@ module RSpec
             field.set(fs, OpenHAB::Core::Mocks::BundleInstallSupport.new(fs.installSupport, self))
           end
           wait_for_service("org.osgi.service.cm.ConfigurationAdmin") do |ca|
+            # register a listener, so that we can know if the Start Level Service is busted
+            bundle = org.osgi.framework.FrameworkUtil.get_bundle(ca.class)
+            listener = org.osgi.service.cm.ConfigurationListener.impl do |_method, event|
+              next unless event.type == org.osgi.service.cm.ConfigurationEvent::CM_UPDATED
+              next unless event.pid == "org.openhab.startlevel"
+
+              # have to wait for the StartLevelService itself to process this event
+              Thread.new do
+                sleep 1
+                reset_start_level_service
+              end
+            end
+            bundle.bundle_context.register_service(org.osgi.service.cm.ConfigurationListener.java_class,
+                                                   listener,
+                                                   nil)
+
             cfg = ca.get_configuration("org.openhab.addons", nil)
             props = cfg.properties || java.util.Hashtable.new
             # remove all non-binding addons
@@ -684,6 +700,26 @@ module RSpec
         target_file_contents = File.read(target_file) if File.exist?(target_file)
         File.write(target_file, startlevels) unless target_file_contents == startlevels
         java.lang.System.set_property("openhab.servicecfg", target_file)
+      end
+
+      # workaround for https://github.com/openhab/openhab-core/pull/3092
+      def reset_start_level_service
+        sls = ::OpenHAB::Core::OSGI.service("org.openhab.core.service.StartLevelService")
+        rs = ::OpenHAB::Core::OSGI.service("org.openhab.core.service.ReadyService")
+        sls.class.field_reader :trackers, :markers
+        rs.class.field_reader :trackers
+        return unless sls.markers.empty?
+        # SLS thinks it has trackers that RS doesn't?! Yeah, we hit the bug
+        return if (sls.trackers.values - rs.trackers.keys).empty?
+
+        ca = ::OpenHAB::Core::OSGI.service("org.osgi.service.cm.ConfigurationAdmin")
+        cfg = ca.get_configuration("org.openhab.startlevel", nil)
+        props = cfg.properties
+        config = props.keys.to_h { |k| [k, props.get(k)] }
+        m = sls.class.java_class.get_declared_method("modified", java.util.Map)
+        m.accessible = true
+        sls.trackers.clear
+        m.invoke(sls, config)
       end
 
       def minimize_installed_features
