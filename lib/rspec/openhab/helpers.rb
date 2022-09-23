@@ -217,8 +217,15 @@ module RSpec
           next unless metadata.uid.namespace == "autoupdate"
 
           to_add << metadata
+
+          # 3.2.0 can't remove single namespaces from the GenericMetadataProvider, so
+          # we have to remove everything from the item
+          unless gmp.respond_to?(:remove_metadata_by_namespace)
+            to_add.concat(gmp.all.select { |m2| m2.uid.item_name == metadata.uid.item_name })
+            gmp.remove_metadata(metadata.uid.item_name)
+          end
         end
-        gmp.remove_metadata_by_namespace("autoupdate")
+        gmp.remove_metadata_by_namespace("autoupdate") if gmp.respond_to?(:remove_metadata_by_namespace)
 
         to_add.each do |m|
           if mmp.get(m.uid)

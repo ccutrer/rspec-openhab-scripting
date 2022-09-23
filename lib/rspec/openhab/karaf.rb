@@ -326,7 +326,6 @@ module RSpec
           org.openhab.core.thing.internal.console.FirmwareUpdateConsoleCommandExtension
         ],
         # the following bundles are blocked completely from starting
-        "org.apache.felix.fileinstall" => nil,
         "org.apache.karaf.http.core" => nil,
         "org.apache.karaf.features.command" => nil,
         "org.apache.karaf.shell.commands" => nil,
@@ -545,15 +544,16 @@ module RSpec
       # import global variables and constants that openhab-scripting gem expects,
       # since we're going to be running it in this same VM
       def set_jruby_script_presets
-        wait_for_service("org.openhab.core.automation.module.script.internal.ScriptExtensionManager") do |sem|
+        wait_for_service("org.openhab.core.automation.module.script.ScriptEngineFactory",
+                         filter: "(service.config.description.uri=automation:jruby)") do |jrubyscripting|
+          # "org.openhab.core.automation.module.script.internal.ScriptExtensionManager") do |sem|
+          sem = ::OpenHAB::Core::OSGI.service(
+            "org.openhab.core.automation.module.script.internal.ScriptExtensionManager"
+          )
           # since we're not created by the ScriptEngineManager, this never gets set; manually set it
           $se = $scriptExtension = ScriptExtensionManagerWrapper.new(sem)
           scope_values = sem.find_default_presets("rspec")
           scope_values = scope_values.entry_set
-          jrubyscripting = ::OpenHAB::Core::OSGI.services(
-            "org.openhab.core.automation.module.script.ScriptEngineFactory",
-            filter: "(service.pid=org.openhab.automation.jrubyscripting)"
-          ).first
 
           %w[mapInstancePresets mapGlobalPresets].each do |method_name|
             method = jrubyscripting.class.java_class.get_declared_method(method_name, java.util.Map::Entry.java_class)
@@ -696,7 +696,7 @@ module RSpec
         startlevels = File.read(config_file)
         startlevels.sub!(",rules:refresh,rules:dslprovider", "")
 
-        target_file = "#{oh_userdata}/etc/services.cfg"
+        target_file = "#{oh_userdata}/services.cfg"
         target_file_contents = File.read(target_file) if File.exist?(target_file)
         File.write(target_file, startlevels) unless target_file_contents == startlevels
         java.lang.System.set_property("openhab.servicecfg", target_file)
@@ -732,6 +732,13 @@ module RSpec
         File.write("#{oh_userdata}/etc/org.apache.karaf.features.xml", <<~XML)
           <?xml version="1.0" encoding="UTF-8"?>
           <featuresProcessing xmlns="http://karaf.apache.org/xmlns/features-processing/v1.0.0" xmlns:f="http://karaf.apache.org/xmlns/features/v1.6.0">
+              <!-- From OpenHAB 3.2.0 -->
+              <bundleReplacements>
+                <bundle originalUri="mvn:org.ops4j.pax.logging/pax-logging-api/[0,2.0.13)" replacement="mvn:org.ops4j.pax.logging/pax-logging-api/2.0.13" mode="maven" />
+                <bundle originalUri="mvn:org.ops4j.pax.logging/pax-logging-log4j2/[0,2.0.13)" replacement="mvn:org.ops4j.pax.logging/pax-logging-log4j2/2.0.13" mode="maven" />
+                <bundle originalUri="mvn:org.ops4j.pax.logging/pax-logging-logback/[0,2.0.13)" replacement="mvn:org.ops4j.pax.logging/pax-logging-logback/2.0.13" mode="maven" />
+              </bundleReplacements>
+
               <blacklistedFeatures>
                 <feature>openhab-runtime-ui</feature>
                 <feature>openhab-core-ui*</feature>
@@ -757,6 +764,7 @@ module RSpec
                     <f:feature>openhab-core-storage-json</f:feature>
                     <f:feature>openhab-automation-jrubyscripting</f:feature>
                     <f:feature>openhab-transport-http</f:feature>
+                    <f:feature prerequisite="true">wrapper</f:feature>
                     <f:bundle>mvn:org.openhab.core.bundles/org.openhab.core.karaf/#{version}</f:bundle>
                   </feature>
                 </replacement>
