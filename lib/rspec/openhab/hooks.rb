@@ -35,6 +35,8 @@ module RSpec
         end
 
         config.before do
+          next unless defined?(::OpenHAB::DSL::Items::ItemProvider)
+
           @item_provider = ::OpenHAB::DSL::Items::ItemProvider.send(:new)
           allow(::OpenHAB::DSL::Items::ItemProvider).to receive(:instance).and_return(@item_provider)
         end
@@ -44,7 +46,7 @@ module RSpec
           (::OpenHAB::Core.rule_registry.all.map(&:uid) - @known_rules).each do |uid|
             ::OpenHAB::Core.rule_registry.remove(uid)
           end
-          $ir.remove_provider(@item_provider) if @item_provider
+          $ir.remove_provider(@item_provider) if instance_variable_defined?(:@item_provider) && @item_provider
           ::OpenHAB::DSL::Timers.timer_manager.cancel_all
           Timecop.return
           restore_autoupdate_items
