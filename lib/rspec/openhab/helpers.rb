@@ -148,7 +148,8 @@ module RSpec
         automation_path = "#{org.openhab.core.OpenHAB.config_folder}/automation/jsr223/ruby/personal"
 
         RSpec::OpenHAB::SuspendRules.suspend_rules do
-          Dir["#{automation_path}/*.rb"].each do |f|
+          files = Dir["#{automation_path}/*.rb"]
+          files.sort_by { |f| [get_start_level(f), f] }.each do |f|
             load f
           rescue Exception => e
             warn "Failed loading #{f}: #{e.inspect}"
@@ -182,6 +183,12 @@ module RSpec
 
       def rubylib_dir
         jrubyscripting_config&.get("rubylib") || "#{org.openhab.core.OpenHAB.config_folder}/automation/lib/ruby"
+      end
+
+      def get_start_level(file)
+        return ($1 || $2).to_i if file =~ %r{/sl(\d{2})/[^/]+$|\.sl(\d{2})\.[^/.]+$}
+
+        50
       end
 
       EMACS_MODELINE_REGEXP = /# -\*-(.+)-\*-/.freeze

@@ -27,6 +27,8 @@ RSpec/DescribeClass:
   Enabled: false
 RSpec/ExampleLength:
   Enabled: false
+RSpec/FilePath:
+  Enabled: false
 RSpec/MessageSpies:
   Enabled: false
 RSpec/MultipleExpectations:
