@@ -705,6 +705,18 @@ module RSpec
       # workaround for https://github.com/openhab/openhab-core/pull/3092
       def reset_start_level_service
         sls = ::OpenHAB::Core::OSGI.service("org.openhab.core.service.StartLevelService")
+
+        unless sls
+          # try a different (hacky!) way to get it, since in OpenHAB 3.2.0 it's not exposed as a service
+          scr = ::OpenHAB::Core::OSGI.service("org.osgi.service.component.runtime.ServiceComponentRuntime")
+          scr.class.field_reader :componentRegistry
+          cr = scr.componentRegistry
+
+          oh_core_bundle = org.osgi.framework.FrameworkUtil.get_bundle(org.openhab.core.OpenHAB)
+          ch = cr.get_component_holder(oh_core_bundle, "org.openhab.core.service.StartLevelService")
+          sls = ch&.components&.first&.component_instance&.instance
+        end
+
         # no SLS yet? then we couldn't have hit the bug
         return unless sls
 
