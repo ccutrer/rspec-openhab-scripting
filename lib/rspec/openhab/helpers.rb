@@ -145,10 +145,10 @@ module RSpec
       end
 
       def load_rules
-        automation_path = "#{org.openhab.core.OpenHAB.config_folder}/automation/jsr223/ruby/personal"
+        automation_path = "#{org.openhab.core.OpenHAB.config_folder}/automation/jsr223"
 
         RSpec::OpenHAB::SuspendRules.suspend_rules do
-          files = Dir["#{automation_path}/*.rb"]
+          files = Dir["#{automation_path}/**/*.rb"]
           files.sort_by { |f| [get_start_level(f), f] }.each do |f|
             load f
           rescue Exception => e
