@@ -675,6 +675,7 @@ module RSpec
       def cleanup_instance
         cleanup_clone
         minimize_installed_features
+        filter_addons
       end
 
       def cleanup_clone
@@ -685,8 +686,21 @@ module RSpec
                          "#{oh_userdata}/tmp/*",
                          "#{oh_userdata}/jsondb/org.openhab.marketplace.json",
                          "#{oh_userdata}/jsondb/org.openhab.jsonaddonservice.json",
+                         "#{path}/config/org/apache/felix/fileinstall",
                          "#{felix_cm}/org/openhab/jsonaddonservice.config"])
         FileUtils.rm_rf("#{oh_userdata}/jsondb") unless include_jsondb
+      end
+
+      def filter_addons
+        config_file = "#{path}/etc/org.apache.felix.fileinstall-deploy.cfg"
+        return unless File.exist?(config_file)
+
+        config = File.read(config_file)
+        new_config = config.sub(/^(felix\.fileinstall\.filter\s+=)[^\n]+$/, "\\1 .*/openhab-addons-[^/]+\\.kar")
+
+        return if config == new_config
+
+        File.write(config_file, new_config)
       end
 
       def prune_startlevels
