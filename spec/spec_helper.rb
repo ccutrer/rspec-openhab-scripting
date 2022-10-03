@@ -1,12 +1,15 @@
 # frozen_string_literal: true
 
+Bundler.setup
+
+require "rspec/openhab/configuration"
+RSpec::OpenHAB::Configuration.include_bindings = false
+RSpec::OpenHAB::Configuration.include_jsondb = false
+RSpec::OpenHAB::Configuration.private_confdir = true
+
 Bundler.require
 
 RSpec.configure do |config|
-  config.include_openhab_bindings = false
-  config.include_openhab_jsondb = false
-  config.private_openhab_confdir = true
-
   config.expect_with :rspec do |expectations|
     expectations.include_chain_clauses_in_custom_matcher_descriptions = true
   end
