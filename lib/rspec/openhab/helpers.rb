@@ -93,12 +93,12 @@ module RSpec
                        include_jsondb: true,
                        private_confdir: false,
                        use_root_instance: false)
-        karaf = RSpec::OpenHAB::Karaf.new("#{Dir.pwd}/.karaf")
-        karaf.include_bindings = include_bindings
-        karaf.include_jsondb = include_jsondb
-        karaf.private_confdir = private_confdir
-        karaf.use_root_instance = use_root_instance
-        main = karaf.launch
+        $karaf = @karaf = RSpec::OpenHAB::Karaf.new("#{Dir.pwd}/.karaf")
+        @karaf.include_bindings = include_bindings
+        @karaf.include_jsondb = include_jsondb
+        @karaf.private_confdir = private_confdir
+        @karaf.use_root_instance = use_root_instance
+        main = @karaf.launch
 
         ENV["RUBYLIB"] ||= ""
         ENV["RUBYLIB"] += ":" unless ENV["RUBYLIB"].empty?
@@ -126,7 +126,7 @@ module RSpec
                     .with_type(org.openhab.core.service.StartLevelService::STARTLEVEL_MARKER_TYPE)
                     .with_identifier(org.openhab.core.service.StartLevelService::STARTLEVEL_RULEENGINE.to_s)
 
-        karaf.send(:wait) do |continue|
+        @karaf.send(:wait) do |continue|
           rs.register_tracker(org.openhab.core.service.ReadyService::ReadyTracker.impl { continue.call }, filter)
         end
 
@@ -186,6 +186,14 @@ module RSpec
 
           sleep 0.25
         end
+      end
+
+      def start_bundle(bundle_name, &block)
+        $karaf.start_bundle(bundle_name, &block)
+      end
+
+      def wait_for_service(service_name, filter: nil, &block)
+        $karaf.wait_for_service(service_name, filter: filter, &block)
       end
 
       private

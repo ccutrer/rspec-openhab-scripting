@@ -50,6 +50,47 @@ module RSpec
         start_instance
       end
 
+      def start_bundle(bundle_name)
+        bundle = @bundle_context.bundles.find { |b| b.symbolic_name == bundle_name }
+        return yield if bundle.state == org.osgi.framework.Bundle::ACTIVE
+
+        @allowed_bundles << bundle_name
+        sl = bundle.adapt(org.osgi.framework.startlevel.BundleStartLevel)
+        original_start_level = sl.start_level
+        begin
+          sl.start_level = 100
+          loop do
+            break if bundle.state == org.osgi.framework.Bundle::ACTIVE
+
+            sleep 0.25
+          end
+          yield
+        ensure
+          sl.start_level = original_start_level
+          @allowed_bundles.delete(bundle_name)
+        end
+      end
+
+      def wait_for_service(service_name, filter: nil, &block)
+        if defined?(::OpenHAB::Core::OSGI) &&
+           (services = ::OpenHAB::Core::OSGI.services(service_name, filter: filter))
+          return services.first unless block
+
+          services.each(&block)
+        end
+
+        action = block || ConditionVariable.new
+        waiters = @awaiting_services[service_name] ||= []
+        waiters << [action, filter && @bundle_context.create_filter(filter)]
+
+        return if block
+
+        @mutex.synchronize do
+          action.wait(@mutex)
+        end
+        ::OpenHAB::Core::OSGI.services(service_name, filter: filter).first
+      end
+
       private
 
       # create a private instances configuration
@@ -111,6 +152,7 @@ module RSpec
         # shut down externally)
         @all_bundles_continue = nil
         @class_loaders = Set.new
+        @allowed_bundles = []
         @main = org.apache.karaf.main.Main.new([])
         launch_karaf
         at_exit do
@@ -167,7 +209,7 @@ module RSpec
             framework.init
             framework.start
 
-            sl = framework.adapt(org.osgi.framework.startlevel.FrameworkStartLevel.java_class)
+            sl = framework.adapt(org.osgi.framework.startlevel.FrameworkStartLevel)
             sl.initial_bundle_start_level = config.defaultBundleStartlevel
 
             if framework.bundle_context.bundles.length == 1
@@ -287,7 +329,6 @@ module RSpec
         org.apache.sshd
         org.eclipse.jetty
         org.ops4j.pax.web
-        org.openhab.automation
         org.openhab.binding
         org.openhab.core.io
         org.openhab.io
@@ -296,7 +337,6 @@ module RSpec
       private_constant :BLOCKED_BUNDLE_TREES
 
       ALLOWED_BUNDLES = %w[
-        org.openhab.automation.jrubyscripting
         org.openhab.core.io.monitor
       ].freeze
       private_constant :ALLOWED_BUNDLES
@@ -387,9 +427,6 @@ module RSpec
           end
           next unless event.type == org.osgi.framework.BundleEvent::STARTED
 
-          # just in case
-          raise "blocked bundle #{bundle.symbolic_name} started!" if blocked_bundle?(bundle)
-
           add_class_loader(bundle)
 
           # as soon as we _can_ do this, do it
@@ -449,6 +486,7 @@ module RSpec
 
       def set_up_service_listener
         @awaiting_services = {}
+        @mutex = Mutex.new
         @bundle_context.add_service_listener do |event|
           next unless event.type == org.osgi.framework.ServiceEvent::REGISTERED
 
@@ -458,7 +496,7 @@ module RSpec
           ref.get_property(org.osgi.framework.Constants::OBJECTCLASS).each do |klass|
             next unless @awaiting_services.key?(klass)
 
-            @awaiting_services[klass].each do |(block, filter)|
+            @awaiting_services[klass].each do |(action, filter)|
               service ||= @bundle_context.get_service(ref)
               next if filter && !filter.match(ref)
 
@@ -467,7 +505,13 @@ module RSpec
 
               bundle = org.osgi.framework.FrameworkUtil.get_bundle(service.class)
               add_class_loader(bundle) if bundle
-              block.call(service)
+
+              case action
+              when ConditionVariable
+                @mutex.synchronize { action.signal }
+              when Proc
+                action.call(service)
+              end
             end
           end
         rescue Exception => e
@@ -481,16 +525,6 @@ module RSpec
 
         @class_loaders << bundle.symbolic_name
         ::JRuby.runtime.instance_config.add_loader(JRuby::OSGiBundleClassLoader.new(bundle))
-      end
-
-      def wait_for_service(service_name, filter: nil, &block)
-        if defined?(::OpenHAB::Core::OSGI) &&
-           (services = ::OpenHAB::Core::OSGI.services(service_name, filter: filter))
-          services.each(&block)
-        end
-
-        waiters = @awaiting_services[service_name] ||= []
-        waiters << [block, filter && @bundle_context.create_filter(filter)]
       end
 
       def wait_for_start
@@ -513,6 +547,7 @@ module RSpec
 
       def blocked_bundle?(bundle)
         return false if ALLOWED_BUNDLES.include?(bundle.symbolic_name)
+        return false if @allowed_bundles.include?(bundle.symbolic_name)
 
         BLOCKED_COMPONENTS.fetch(bundle.symbolic_name, false).nil? ||
           BLOCKED_BUNDLE_TREES.any? { |tree| bundle.symbolic_name.start_with?(tree) } ||
