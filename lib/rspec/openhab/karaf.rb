@@ -304,7 +304,6 @@ module RSpec
       BLOCKED_COMPONENTS = {
         "org.openhab.core" => %w[
           org.openhab.core.addon.AddonEventFactory
-          org.openhab.core.binding.BindingInfoRegistry
           org.openhab.core.binding.i18n.BindingI18nLocalizationService
           org.openhab.core.internal.auth.ManagedUserProvider
           org.openhab.core.internal.auth.UserRegistryImpl

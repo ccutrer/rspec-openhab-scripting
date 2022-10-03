@@ -75,7 +75,7 @@ module RSpec
         @rules.fetch(rule_name).execute(nil, { "event" => event })
       end
 
-      def trigger_channel(channel, event)
+      def trigger_channel(channel, event = "")
         channel = org.openhab.core.thing.ChannelUID.new(channel) if channel.is_a?(String)
         channel = channel.uid if channel.is_a?(org.openhab.core.thing.Channel)
         thing = channel.thing
@@ -112,6 +112,7 @@ module RSpec
         require_relative "actions"
         require_relative "core/item_proxy"
         require_relative "dsl/timers/timer"
+        require_relative "dsl/things/thing"
         # TODO: still needed?
         require_relative "dsl/rules/triggers/watch"
 
@@ -171,6 +172,19 @@ module RSpec
           method = basename[0...-7]
           modules << method
           ::OpenHAB::Transform.add_script(modules, script)
+        end
+      end
+
+      def install_addon(addon_id, wait: true)
+        addon_service = ::OpenHAB::Core::OSGI.service("org.openhab.core.addon.AddonService")
+        addon_service.install(addon_id)
+        return unless wait
+
+        loop do
+          addon = addon_service.get_addon(addon_id, nil)
+          return if addon.installed?
+
+          sleep 0.25
         end
       end
 

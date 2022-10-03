@@ -13,6 +13,10 @@ module OpenHAB
             @proxies[item.name] = super
           end
         end
+
+        def reset_cache
+          @proxies = {}
+        end
       end
     end
   end

@@ -79,14 +79,15 @@ and then load rules in, then drop you into IRB.
  * `on_start` triggers are _not_ honored. Items will be reset to NULL before
    the next spec anyway, so just don't waste the energy running them. You
    can still trigger rules manually.
- * Rule triggers besides item related triggers (such as
-   thing status, cron, or watchers) are not triggered. You can test them with
+ * Rule triggers besides item related triggers (such as cron or watchers)
+   are not triggered. You can test them with
    `trigger_rule("rule name"[, event])`.
- * You can trigger channels directly with `trigger_channel(channel, data)`.
+ * You can trigger channels directly with `trigger_channel(channel[, data])`.
  * Timers aren't triggered automatically. Use the `execute_timers` helper to
    execute any timers that are ready to run. The `timecop` gem is
    automatiocally included, so use `Timecop.travel(5.seconds)` (for example)
-   to travel forward in time and have timers ready to execute.
+   to travel forward in time and have timers ready to execute. Note that this
+   includes implicit timers created by rules that use the `for:` feature.
  * Logging levels can be changed in your code. Setting a log level for a logger
    further up the chain (separated by dots) applies to all loggers underneath
    it.
@@ -111,6 +112,10 @@ OpenHAB::Log.events.level = :info
    a test. In that case, use the `suspend_rules {}` helper.
  * Item persistence is enabled by default using an in-memory story that only
    tracks changes to items.
+ * The `install_addon(addon_name)` helper can be used to install an addon like
+   `"binding-astro"` if you need to be able to create things from your rules.
+   Note that the addon isn't actually allowed to start, just be installed to
+   make type metadata from XML available.
 
 ## Configuration
 
