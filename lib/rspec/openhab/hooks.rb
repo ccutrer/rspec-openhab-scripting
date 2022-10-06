@@ -46,7 +46,7 @@ module RSpec
         config.after do
           # remove rules created during the spec
           (::OpenHAB::Core.rule_registry.all.map(&:uid) - @known_rules).each do |uid|
-            ::OpenHAB::Core.rule_registry.remove(uid)
+            remove_rule(uid) if defined?(remove_rule)
           end
           $ir.remove_provider(@item_provider) if instance_variable_defined?(:@item_provider) && @item_provider
           ::OpenHAB::Core::ItemProxy.reset_cache
