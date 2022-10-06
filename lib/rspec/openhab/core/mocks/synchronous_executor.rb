@@ -8,8 +8,10 @@ module RSpec
       module Mocks
         class CallbacksMap < java.util.HashMap
           def put(_rule_uid, trigger_handler)
-            trigger_handler.executor.shutdown_now
-            trigger_handler.executor = SynchronousExecutor.instance
+            if trigger_handler.executor
+              trigger_handler.executor.shutdown_now
+              trigger_handler.executor = SynchronousExecutor.instance
+            end
             super
           end
         end
